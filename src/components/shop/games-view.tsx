@@ -2,19 +2,21 @@
 
 import { useAppStore } from "@/lib/store";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Store, ChevronRight } from "lucide-react";
+import { ArrowLeft, Store, ChevronRight, MessageCircle } from "lucide-react";
 import type { Listing } from "@/lib/types";
 import { formatFCFA } from "@/lib/types";
 import { useEffect, useState, useCallback } from "react";
 import { ListingSearch, emptyFilter, type FilterState } from "./search-and-rating";
 import { RatingBadge } from "./rating-modal";
+import { ContactSellerDialog } from "./messages-view";
 
 export function GamesView() {
-  const { games, selectedGameId, setSelectedGameId, setPendingListingId, setLoginOpen, me } =
+  const { games, selectedGameId, setSelectedGameId, setPendingListingId, setLoginOpen, me, setActiveConversationId } =
     useAppStore();
   const [listings, setListings] = useState<Listing[]>([]);
   const [loading, setLoading] = useState(false);
   const [filter, setFilter] = useState<FilterState>(emptyFilter);
+  const [contactListing, setContactListing] = useState<Listing | null>(null);
 
   const selectedGame = games.find((g) => g.id === selectedGameId) ?? null;
 
@@ -53,6 +55,15 @@ export function GamesView() {
     setPendingListingId(l.id);
   }
 
+  function openContact(l: Listing) {
+    if (!me) {
+      setLoginOpen(true);
+      return;
+    }
+    setContactListing(l);
+  }
+
+  // View: a game is selected — show its listings
   if (selectedGame) {
     return (
       <div className="mx-3 sm:mx-6 py-6 pb-12">
@@ -111,14 +122,33 @@ export function GamesView() {
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {listings.map((l) => (
-              <ListingCard key={l.id} listing={l} onBuy={() => buy(l)} />
+              <ListingCard
+                key={l.id}
+                listing={l}
+                onBuy={() => buy(l)}
+                onContact={() => openContact(l)}
+              />
             ))}
           </div>
         )}
+
+        {/* Contact seller dialog */}
+        <ContactSellerDialog
+          listingId={contactListing?.id ?? ""}
+          listingTitle={contactListing?.title ?? ""}
+          sellerName={contactListing?.seller?.username ?? ""}
+          open={!!contactListing}
+          onClose={() => setContactListing(null)}
+          onStarted={(conversationId) => {
+            setContactListing(null);
+            setActiveConversationId(conversationId);
+          }}
+        />
       </div>
     );
   }
 
+  // View: no game selected — show all games
   return (
     <div className="mx-3 sm:mx-6 py-6 pb-12">
       <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 mb-1">
@@ -165,9 +195,11 @@ export function GamesView() {
 function ListingCard({
   listing,
   onBuy,
+  onContact,
 }: {
   listing: Listing;
   onBuy: () => void;
+  onContact: () => void;
 }) {
   return (
     <div className="flex flex-col rounded-2xl border bg-white shadow-sm overflow-hidden hover:shadow-md transition-shadow">
@@ -203,14 +235,26 @@ function ListingCard({
           <span className="font-extrabold text-fuchsia-600 text-lg">
             {formatFCFA(listing.price)}
           </span>
+        </div>
+
+        {/* Two buttons: Contact seller + Buy */}
+        <div className="mt-2 flex gap-2">
+          <Button
+            onClick={onContact}
+            variant="outline"
+            className="flex-1 h-10 rounded-full border-emerald-300 text-emerald-700 hover:bg-emerald-50 font-semibold text-sm"
+          >
+            <MessageCircle className="size-4" />
+            Contacter
+          </Button>
           <Button
             onClick={onBuy}
-            className="h-10 rounded-full bg-gradient-to-r from-sky-500 to-cyan-500 hover:from-sky-600 hover:to-cyan-600 text-white font-bold shadow-md hover:shadow-lg"
+            className="flex-1 h-10 rounded-full bg-gradient-to-r from-sky-500 to-cyan-500 hover:from-sky-600 hover:to-cyan-600 text-white font-bold shadow-md hover:shadow-lg text-sm"
           >
             <span className="size-4 rounded-full bg-white/20 grid place-items-center text-[10px] font-bold">
               W
             </span>
-            Payer avec Wave
+            Acheter
           </Button>
         </div>
       </div>

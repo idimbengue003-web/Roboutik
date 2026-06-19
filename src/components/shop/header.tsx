@@ -2,7 +2,7 @@
 
 import { useAppStore } from "@/lib/store";
 import { Button } from "@/components/ui/button";
-import { Home, Gamepad2, ShoppingBag, Sparkles, Store, HeadphonesIcon, Shield } from "lucide-react";
+import { Home, Gamepad2, ShoppingBag, Sparkles, Store, HeadphonesIcon, Shield, MessagesSquare } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useEffect, useState } from "react";
 import { UserChip } from "./google-login";
@@ -42,6 +42,7 @@ export function Header() {
     { id: "home", label: "Accueil", icon: Home },
     { id: "games", label: "Jeux Roblox", icon: Gamepad2 },
     { id: "orders", label: "Commandes", icon: ShoppingBag, needsAuth: true },
+    { id: "messages", label: "Messages", icon: MessagesSquare, needsAuth: true },
     { id: "seller", label: "Vendeur", icon: Store, needsAuth: true },
     { id: "support", label: "Support", icon: HeadphonesIcon },
     { id: "admin", label: "Admin", icon: Shield, needsAdmin: true },
@@ -86,6 +87,8 @@ export function Header() {
                       ? "bg-gradient-to-r from-rose-600 to-orange-500 text-white shadow-md"
                       : t.id === "support"
                       ? "bg-gradient-to-r from-sky-500 to-cyan-500 text-white shadow-md"
+                      : t.id === "messages"
+                      ? "bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-md"
                       : "bg-gradient-to-r from-fuchsia-600 to-orange-500 text-white shadow-md"
                     : "text-slate-700 hover:bg-slate-100"
                 )}

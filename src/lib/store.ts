@@ -3,7 +3,7 @@
 import { create } from "zustand";
 import type { Game, User } from "@/lib/types";
 
-type Tab = "home" | "games" | "orders" | "seller" | "admin" | "support";
+type Tab = "home" | "games" | "orders" | "seller" | "admin" | "support" | "messages";
 
 type AppState = {
   // navigation
@@ -40,6 +40,14 @@ type AppState = {
   activeTicketId: string | null;
   setActiveTicketId: (id: string | null) => void;
 
+  // conversations: pre-sale chat between buyer and seller
+  activeConversationId: string | null;
+  setActiveConversationId: (id: string | null) => void;
+
+  // report: order id to report (opens report dialog)
+  reportOrderId: string | null;
+  setReportOrderId: (id: string | null) => void;
+
   // orders refresh trigger
   ordersVersion: number;
   bumpOrders: () => void;
@@ -71,6 +79,12 @@ export const useAppStore = create<AppState>((set) => ({
 
   activeTicketId: null,
   setActiveTicketId: (id) => set({ activeTicketId: id }),
+
+  activeConversationId: null,
+  setActiveConversationId: (id) => set({ activeConversationId: id }),
+
+  reportOrderId: null,
+  setReportOrderId: (id) => set({ reportOrderId: id }),
 
   ordersVersion: 0,
   bumpOrders: () => set((s) => ({ ordersVersion: s.ordersVersion + 1 })),

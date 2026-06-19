@@ -16,6 +16,9 @@ import { RatingModal } from "@/components/shop/rating-modal";
 import { SupportView } from "@/components/shop/support-view";
 import { SupportDrawer } from "@/components/shop/support-drawer";
 import { AdminView } from "@/components/shop/admin-view";
+import { MessagesView } from "@/components/shop/messages-view";
+import { ConversationsDrawer } from "@/components/shop/conversations-drawer";
+import { ReportSellerDialog } from "@/components/shop/report-seller-dialog";
 import { Loader2 } from "lucide-react";
 
 export default function Home() {
@@ -87,6 +90,7 @@ export default function Home() {
             {activeTab === "home" && <HomeView />}
             {activeTab === "games" && <GamesView />}
             {activeTab === "orders" && <OrdersView />}
+            {activeTab === "messages" && <MessagesView />}
             {activeTab === "seller" && <SellerView />}
             {activeTab === "support" && <SupportView />}
             {activeTab === "admin" && <AdminView />}
@@ -100,6 +104,8 @@ export default function Home() {
       <ChatDrawer />
       <RatingModal />
       <SupportDrawer />
+      <ConversationsDrawer />
+      <ReportSellerDialog />
     </div>
   );
 }

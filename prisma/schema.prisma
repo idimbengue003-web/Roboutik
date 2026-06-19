@@ -40,6 +40,9 @@ model User {
   ticketMessages TicketMessage[]
   auditLogsActor AuditLog[]    @relation("AuditActor")
   auditLogsTarget AuditLog[]   @relation("AuditTarget")
+  convsAsBuyer   Conversation[] @relation("ConvBuyer")
+  convsAsSeller  Conversation[] @relation("ConvSeller")
+  convMessages   ConversationMessage[]
 
   @@schema("roboutik")
 }
@@ -75,6 +78,7 @@ model Listing {
 
   orders  Order[]
   ratings Rating[]
+  conversations Conversation[]
 
   @@schema("roboutik")
 }
@@ -189,5 +193,60 @@ model AuditLog {
   metadata   String?  // JSON string with extra context
   createdAt  DateTime @default(now())
 
+  @@schema("roboutik")
+}
+
+// Pre-sale conversation between a buyer and a seller about a specific listing
+model Conversation {
+  id          String   @id @default(cuid())
+  listingId   String
+  listing     Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  buyerId     String
+  buyer       User     @relation("ConvBuyer", fields: [buyerId], references: [id])
+  sellerId    String
+  seller      User     @relation("ConvSeller", fields: [sellerId], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  messages    ConversationMessage[]
+
+  @@unique([listingId, buyerId])
+  @@schema("roboutik")
+}
+
+model ConversationMessage {
+  id             String   @id @default(cuid())
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  senderId       String
+  sender         User     @relation(fields: [senderId], references: [id])
+  content        String
+  isAuto         Boolean  @default(false)
+  createdAt      DateTime @default(now())
+
+  @@schema("roboutik")
+}
+
+// Log of notifications sent (avoid double-sending, audit trail)
+model NotificationLog {
+  id         String   @id @default(cuid())
+  // CHANNEL: EMAIL | WHATSAPP
+  channel    String
+  // TYPE: NEW_MESSAGE | NEW_ORDER | ORDER_VALIDATED | WITHDRAWAL_STATUS | TICKET_REPLY
+  type       String
+  recipientUserId String
+  recipientEmail  String?
+  recipientPhone  String?
+  subject    String?
+  body       String
+  // STATUS: PENDING | SENT | FAILED | SKIPPED (no API key)
+  status     String   @default("PENDING")
+  errorMessage String?
+  // Optional reference to related entity
+  refType    String?  // CONVERSATION_MESSAGE | ORDER | TICKET | WITHDRAWAL
+  refId      String?
+  createdAt  DateTime @default(now())
+
+  @@index([recipientUserId, createdAt])
   @@schema("roboutik")
 }

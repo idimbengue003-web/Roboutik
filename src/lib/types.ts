@@ -63,6 +63,29 @@ export type AuditLog = {
   target?: User | null;
 };
 
+export type Conversation = {
+  id: string;
+  listingId: string;
+  buyerId: string;
+  sellerId: string;
+  createdAt: string;
+  updatedAt: string;
+  listing?: Listing & { game?: Game };
+  buyer?: User;
+  seller?: User;
+  messages?: ConversationMessage[];
+};
+
+export type ConversationMessage = {
+  id: string;
+  conversationId: string;
+  senderId: string;
+  content: string;
+  isAuto: boolean;
+  createdAt: string;
+  sender?: User;
+};
+
 export type Rating = {
   id: string;
   orderId: string;

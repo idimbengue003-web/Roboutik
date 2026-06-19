@@ -18,6 +18,7 @@ import {
   Clock,
   ShieldCheck,
   Star,
+  Flag,
 } from "lucide-react";
 import { useEffect, useRef, useState, useCallback } from "react";
 import type { Order, Message } from "@/lib/types";
@@ -25,7 +26,7 @@ import { formatFCFA, STATUS_LABEL, STATUS_COLOR, formatCountdown } from "@/lib/t
 import { useToast } from "@/hooks/use-toast";
 
 export function ChatDrawer() {
-  const { activeOrderId, setActiveOrderId, me, bumpOrders, setRateOrderId } = useAppStore();
+  const { activeOrderId, setActiveOrderId, me, bumpOrders, setRateOrderId, setReportOrderId } = useAppStore();
   const [order, setOrder] = useState<Order | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
@@ -168,6 +169,21 @@ export function ChatDrawer() {
                 </strong>
               </SheetDescription>
             </div>
+            {/* Report seller button — always visible while order is active */}
+            {order && order.status !== "VALIDATED" && (
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => {
+                  setReportOrderId(order.id);
+                }}
+                className="h-8 text-xs rounded-full text-rose-500 hover:bg-rose-50 hover:text-rose-600 shrink-0"
+                title="Signaler le vendeur"
+              >
+                <Flag className="size-3.5" />
+                <span className="hidden sm:inline">Signaler</span>
+              </Button>
+            )}
             {status && (
               <span
                 className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-bold ${STATUS_COLOR[status]}`}
