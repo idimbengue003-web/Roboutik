@@ -7,7 +7,12 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+  // Use a dedicated schema to avoid collisions with other projects sharing the same Neon DB
+  schemas  = ["roboutik"]
 }
+
+// All models live in the "roboutik" schema (separate from "public")
+// Prisma creates this schema automatically on first db push
 
 model User {
   id         String   @id @default(cuid())
@@ -16,7 +21,7 @@ model User {
   avatar     String?
   googleSub  String?  @unique
   isSeller   Boolean  @default(false)
-  balance    Int      @default(0) // accumulated validated funds (in FCFA)
+  balance    Int      @default(0)
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
@@ -27,6 +32,8 @@ model User {
   ratingsGiven   Rating[]      @relation("RatingFrom")
   ratingsReceived Rating[]     @relation("RatingTo")
   withdrawals    Withdrawal[]
+
+  @@schema("roboutik")
 }
 
 model Game {
@@ -40,6 +47,8 @@ model Game {
   createdAt   DateTime @default(now())
 
   listings Listing[]
+
+  @@schema("roboutik")
 }
 
 model Listing {
@@ -50,13 +59,15 @@ model Listing {
   game        Game     @relation(fields: [gameId], references: [id])
   title       String
   description String
-  price       Int // in FCFA
+  price       Int
   image       String?
   active      Boolean  @default(true)
   createdAt   DateTime @default(now())
 
   orders  Order[]
   ratings Rating[]
+
+  @@schema("roboutik")
 }
 
 model Order {
@@ -67,12 +78,10 @@ model Order {
   buyer          User      @relation("BuyerOrders", fields: [buyerId], references: [id])
   sellerId       String
   seller         User      @relation("SellerOrders", fields: [sellerId], references: [id])
-  amount         Int // in FCFA
-  // PENDING_PAYMENT -> PAID -> DELIVERED -> VALIDATED  |  CANCELLED
+  amount         Int
   status         String    @default("PENDING_PAYMENT")
   paidAt         DateTime?
   deliveredAt    DateTime?
-  // Auto-validation target time (paidAt + 24h). Buyer must validate before this or it auto-validates.
   autoValidateAt DateTime?
   validatedAt    DateTime?
   createdAt      DateTime  @default(now())
@@ -80,6 +89,8 @@ model Order {
 
   messages Message[]
   rating   Rating?
+
+  @@schema("roboutik")
 }
 
 model Message {
@@ -89,8 +100,10 @@ model Message {
   senderId  String
   sender    User     @relation(fields: [senderId], references: [id])
   content   String
-  isAuto    Boolean  @default(false) // seller auto-message simulation
+  isAuto    Boolean  @default(false)
   createdAt DateTime @default(now())
+
+  @@schema("roboutik")
 }
 
 model Rating {
@@ -103,18 +116,22 @@ model Rating {
   fromUser   User     @relation("RatingFrom", fields: [fromUserId], references: [id])
   toUserId   String
   toUser     User     @relation("RatingTo", fields: [toUserId], references: [id])
-  stars      Int // 1-5
+  stars      Int
   comment    String?
   createdAt  DateTime @default(now())
+
+  @@schema("roboutik")
 }
 
 model Withdrawal {
   id         String   @id @default(cuid())
   sellerId   String
   seller     User     @relation(fields: [sellerId], references: [id])
-  amount     Int // in FCFA
+  amount     Int
   waveNumber String
-  status     String   @default("PENDING") // PENDING | COMPLETED | REJECTED
+  status     String   @default("PENDING")
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
+
+  @@schema("roboutik")
 }
