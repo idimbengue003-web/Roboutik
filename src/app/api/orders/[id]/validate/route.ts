@@ -22,18 +22,18 @@ export async function POST(
       return NextResponse.json({ error: "Commande déjà validée" }, { status: 400 });
     }
 
-    if (order.status !== "DELIVERED") {
+    if (order.status !== "DELIVERED" && order.status !== "PAID") {
       return NextResponse.json(
         { error: "Le vendeur doit d'abord confirmer la livraison" },
         { status: 400 }
       );
     }
 
-    // Transfer balance to seller
+    const now = new Date();
     await db.$transaction([
       db.order.update({
         where: { id },
-        data: { status: "VALIDATED" },
+        data: { status: "VALIDATED", validatedAt: now },
       }),
       db.user.update({
         where: { id: order.sellerId },
@@ -52,10 +52,11 @@ export async function POST(
     const updated = await db.order.findUnique({
       where: { id },
       include: {
-        listing: { include: { game: true } },
+        listing: { include: { game: true, ratings: true } },
         seller: true,
         buyer: true,
         messages: { orderBy: { createdAt: "asc" } },
+        rating: true,
       },
     });
 

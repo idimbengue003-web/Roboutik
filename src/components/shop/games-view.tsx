@@ -5,39 +5,53 @@ import { Button } from "@/components/ui/button";
 import { ArrowLeft, Store, ChevronRight } from "lucide-react";
 import type { Listing } from "@/lib/types";
 import { formatFCFA } from "@/lib/types";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
+import { ListingSearch, emptyFilter, type FilterState } from "./search-and-rating";
+import { RatingBadge } from "./rating-modal";
 
 export function GamesView() {
-  const { games, selectedGameId, setSelectedGameId, setPendingListing } =
+  const { games, selectedGameId, setSelectedGameId, setPendingListingId, setLoginOpen, me } =
     useAppStore();
   const [listings, setListings] = useState<Listing[]>([]);
   const [loading, setLoading] = useState(false);
+  const [filter, setFilter] = useState<FilterState>(emptyFilter);
 
   const selectedGame = games.find((g) => g.id === selectedGameId) ?? null;
 
-  useEffect(() => {
+  const fetchListings = useCallback(async () => {
     if (!selectedGameId) {
       setListings([]);
       return;
     }
-    let cancelled = false;
     setLoading(true);
-    (async () => {
-      try {
-        const r = await fetch(`/api/listings?gameId=${selectedGameId}`);
-        if (!r.ok) return;
-        const d = await r.json();
-        if (!cancelled) setListings(d.listings ?? []);
-      } catch {
-        /* noop */
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [selectedGameId]);
+    try {
+      const params = new URLSearchParams();
+      params.set("gameId", selectedGameId);
+      if (filter.q) params.set("q", filter.q);
+      if (filter.minPrice) params.set("minPrice", filter.minPrice);
+      if (filter.maxPrice) params.set("maxPrice", filter.maxPrice);
+      params.set("sort", filter.sort);
+
+      const r = await fetch(`/api/listings?${params.toString()}`);
+      if (!r.ok) return;
+      const d = await r.json();
+      setListings(d.listings ?? []);
+    } finally {
+      setLoading(false);
+    }
+  }, [selectedGameId, filter]);
+
+  useEffect(() => {
+    fetchListings();
+  }, [fetchListings]);
+
+  function buy(l: Listing) {
+    if (!me) {
+      setLoginOpen(true);
+      return;
+    }
+    setPendingListingId(l.id);
+  }
 
   if (selectedGame) {
     return (
@@ -66,6 +80,10 @@ export function GamesView() {
           </div>
         </div>
 
+        <div className="mb-4">
+          <ListingSearch value={filter} onChange={setFilter} />
+        </div>
+
         <h2 className="text-lg font-bold text-slate-900 mb-3">
           📦 {listings.length} annonce{listings.length > 1 ? "s" : ""} disponible
           {listings.length > 1 ? "s" : ""}
@@ -74,24 +92,26 @@ export function GamesView() {
         {loading ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {Array.from({ length: 3 }).map((_, i) => (
-              <div
-                key={i}
-                className="h-56 rounded-2xl bg-slate-100 animate-pulse"
-              />
+              <div key={i} className="h-56 rounded-2xl bg-slate-100 animate-pulse" />
             ))}
           </div>
         ) : listings.length === 0 ? (
           <div className="rounded-2xl border bg-white p-8 text-center text-slate-500">
-            Aucune annonce pour ce jeu pour le moment.
+            Aucune annonce ne correspond à ta recherche.
+            <br />
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setFilter(emptyFilter)}
+              className="mt-2 text-fuchsia-600 font-semibold"
+            >
+              Réinitialiser les filtres
+            </Button>
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {listings.map((l) => (
-              <ListingCard
-                key={l.id}
-                listing={l}
-                onBuy={() => setPendingListing(l)}
-              />
+              <ListingCard key={l.id} listing={l} onBuy={() => buy(l)} />
             ))}
           </div>
         )}
@@ -99,7 +119,6 @@ export function GamesView() {
     );
   }
 
-  // Game selection grid
   return (
     <div className="mx-3 sm:mx-6 py-6 pb-12">
       <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 mb-1">
@@ -123,9 +142,7 @@ export function GamesView() {
             />
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2">
-                <h3 className="font-bold text-slate-900 line-clamp-1">
-                  {g.name}
-                </h3>
+                <h3 className="font-bold text-slate-900 line-clamp-1">{g.name}</h3>
                 {g.isFavorite && (
                   <span className="text-amber-400 text-sm">⭐</span>
                 )}
@@ -163,12 +180,16 @@ function ListingCard({
         )}
       </div>
       <div className="flex flex-1 flex-col p-4">
-        <h3 className="font-bold text-slate-900 line-clamp-1">
-          {listing.title}
-        </h3>
+        <h3 className="font-bold text-slate-900 line-clamp-1">{listing.title}</h3>
         <p className="text-sm text-slate-500 mt-1 line-clamp-2 flex-1">
           {listing.description}
         </p>
+
+        {listing.ratings && listing.ratings.length > 0 && (
+          <div className="mt-2">
+            <RatingBadge ratings={listing.ratings} />
+          </div>
+        )}
 
         <div className="mt-3 flex items-center gap-2 text-xs text-slate-500">
           <div className="grid size-7 place-items-center rounded-full bg-slate-100 text-sm">
@@ -184,7 +205,7 @@ function ListingCard({
           </span>
           <Button
             onClick={onBuy}
-            className="h-10 rounded-full bg-gradient-to-r from-fuchsia-600 to-orange-500 text-white font-bold shadow-md hover:shadow-lg"
+            className="h-10 rounded-full bg-gradient-to-r from-sky-500 to-cyan-500 hover:from-sky-600 hover:to-cyan-600 text-white font-bold shadow-md hover:shadow-lg"
           >
             <span className="size-4 rounded-full bg-white/20 grid place-items-center text-[10px] font-bold">
               W

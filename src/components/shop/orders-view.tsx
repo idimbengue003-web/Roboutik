@@ -4,17 +4,22 @@ import { useAppStore } from "@/lib/store";
 import { Button } from "@/components/ui/button";
 import { useEffect, useState } from "react";
 import type { Order } from "@/lib/types";
-import { formatFCFA, STATUS_LABEL, STATUS_COLOR } from "@/lib/types";
-import { MessageCircle, Package, RefreshCw, ShoppingBag, Zap } from "lucide-react";
+import { formatFCFA, STATUS_LABEL, STATUS_COLOR, formatCountdown } from "@/lib/types";
+import { MessageCircle, Package, RefreshCw, ShoppingBag, Zap, Star, Clock, CheckCircle2 } from "lucide-react";
 
 export function OrdersView() {
-  const { me, ordersVersion, setActiveOrderId, setActiveTab, bumpOrders } =
+  const { me, ordersVersion, setActiveOrderId, setActiveTab, bumpOrders, setRateOrderId } =
     useAppStore();
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
+  const [now, setNow] = useState(Date.now());
 
   const fetchOrders = async () => {
-    if (!me) return;
+    if (!me) {
+      setOrders([]);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
       const r = await fetch(`/api/orders?buyerId=${me.id}`);
@@ -32,13 +37,33 @@ export function OrdersView() {
     fetchOrders();
   }, [me, ordersVersion]);
 
-  // Poll every 4s for status updates (auto-delivery, etc.)
+  // Poll for status updates + countdown tick
   useEffect(() => {
     const t = setInterval(() => {
       bumpOrders();
-    }, 5000);
+      setNow(Date.now());
+    }, 2000);
     return () => clearInterval(t);
   }, [bumpOrders]);
+
+  if (!me) {
+    return (
+      <div className="mx-3 sm:mx-6 py-12">
+        <div className="rounded-3xl border bg-white p-8 sm:p-12 text-center">
+          <div className="mx-auto grid size-16 place-items-center rounded-full bg-fuchsia-50 mb-4">
+            <ShoppingBag className="size-8 text-fuchsia-500" />
+          </div>
+          <h2 className="text-xl font-bold text-slate-900">
+            Connecte-toi pour voir tes commandes
+          </h2>
+          <p className="text-slate-500 mt-2 max-w-md mx-auto">
+            Tes commandes sont liées à ton compte Google. Connecte-toi pour les
+            retrouver et discuter avec tes vendeurs.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   const pending = orders.filter(
     (o) => o.status !== "VALIDATED" && o.status !== "CANCELLED"
@@ -88,7 +113,6 @@ export function OrdersView() {
         </Button>
       </div>
 
-      {/* Pending orders */}
       {pending.length > 0 && (
         <section>
           <h2 className="text-lg font-bold text-slate-900 mb-3">
@@ -99,14 +123,15 @@ export function OrdersView() {
               <OrderCard
                 key={o.id}
                 order={o}
+                now={now}
                 onOpen={() => setActiveOrderId(o.id)}
+                onRate={() => setRateOrderId(o.id)}
               />
             ))}
           </div>
         </section>
       )}
 
-      {/* Validated orders */}
       {done.length > 0 && (
         <section>
           <h2 className="text-lg font-bold text-slate-900 mb-3">
@@ -117,7 +142,9 @@ export function OrdersView() {
               <OrderCard
                 key={o.id}
                 order={o}
+                now={now}
                 onOpen={() => setActiveOrderId(o.id)}
+                onRate={() => setRateOrderId(o.id)}
               />
             ))}
           </div>
@@ -129,20 +156,30 @@ export function OrdersView() {
 
 function OrderCard({
   order,
+  now,
   onOpen,
+  onRate,
 }: {
   order: Order;
+  now: number;
   onOpen: () => void;
+  onRate: () => void;
 }) {
   const statusLabel = STATUS_LABEL[order.status];
   const statusColor = STATUS_COLOR[order.status];
   const lastMsg = order.messages?.[order.messages.length - 1];
 
+  // Countdown to auto-validation
+  const autoMs =
+    order.autoValidateAt && (order.status === "PAID" || order.status === "DELIVERED")
+      ? new Date(order.autoValidateAt).getTime() - now
+      : null;
+
+  const canRate = order.status === "VALIDATED" && !order.rating;
+  const hasRating = order.status === "VALIDATED" && order.rating;
+
   return (
-    <button
-      onClick={onOpen}
-      className="w-full text-left rounded-2xl border bg-white p-4 shadow-sm hover:shadow-md transition-all hover:-translate-y-0.5"
-    >
+    <div className="rounded-2xl border bg-white p-4 shadow-sm hover:shadow-md transition-all">
       <div className="flex items-start gap-3">
         <div className="grid size-12 place-items-center rounded-xl bg-gradient-to-br from-fuchsia-100 to-orange-100 text-2xl shrink-0">
           🎮
@@ -162,8 +199,40 @@ function OrderCard({
             {order.listing?.game?.name} · {formatFCFA(order.amount)}
           </p>
 
+          {/* Rating display */}
+          {hasRating && (
+            <div className="mt-2 inline-flex items-center gap-1 text-xs text-slate-600 bg-amber-50 rounded-full px-2 py-0.5">
+              <Star className="size-3 fill-amber-400 text-amber-400" />
+              <span className="font-bold">{order.rating?.stars}/5</span>
+              {order.rating?.comment && (
+                <span className="text-slate-500 line-clamp-1 max-w-[180px]">
+                  · {order.rating.comment}
+                </span>
+              )}
+            </div>
+          )}
+
+          {/* Auto-validation countdown */}
+          {autoMs !== null && autoMs > 0 && (
+            <div className="mt-2 inline-flex items-center gap-1.5 text-[11px] text-slate-600 bg-slate-100 rounded-full px-2 py-1">
+              <Clock className="size-3 text-amber-500" />
+              <span>
+                Validation auto dans <strong>{formatCountdown(autoMs)}</strong>
+              </span>
+            </div>
+          )}
+          {autoMs !== null && autoMs <= 0 && (
+            <div className="mt-2 inline-flex items-center gap-1.5 text-[11px] text-slate-600 bg-slate-100 rounded-full px-2 py-1">
+              <CheckCircle2 className="size-3 text-emerald-500" />
+              <span>Validation auto en cours…</span>
+            </div>
+          )}
+
           {lastMsg && (
-            <div className="mt-2 flex items-start gap-1.5 text-xs text-slate-500 bg-slate-50 rounded-lg p-2 line-clamp-2">
+            <button
+              onClick={onOpen}
+              className="mt-2 w-full flex items-start gap-1.5 text-xs text-slate-500 bg-slate-50 hover:bg-slate-100 rounded-lg p-2 text-left transition-colors"
+            >
               <MessageCircle className="size-3.5 mt-0.5 shrink-0 text-fuchsia-500" />
               <span className="line-clamp-2">
                 <strong className="text-slate-700">
@@ -174,24 +243,43 @@ function OrderCard({
                 </strong>{" "}
                 {lastMsg.content}
               </span>
-            </div>
+            </button>
           )}
 
-          <div className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-fuchsia-600">
-            {order.status === "DELIVERED" ? (
-              <>
-                <Package className="size-3.5" />
-                Valider la commande →
-              </>
-            ) : (
-              <>
-                <MessageCircle className="size-3.5" />
-                Ouvrir la discussion →
-              </>
+          <div className="mt-2 flex items-center gap-2 flex-wrap">
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={onOpen}
+              className="h-7 text-xs rounded-full text-fuchsia-600 hover:text-fuchsia-700 hover:bg-fuchsia-50 px-2"
+            >
+              {order.status === "DELIVERED" ? (
+                <>
+                  <Package className="size-3.5" />
+                  Valider la commande
+                </>
+              ) : (
+                <>
+                  <MessageCircle className="size-3.5" />
+                  Ouvrir la discussion
+                </>
+              )}
+              →
+            </Button>
+            {canRate && (
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={onRate}
+                className="h-7 text-xs rounded-full text-amber-600 hover:text-amber-700 hover:bg-amber-50 px-2"
+              >
+                <Star className="size-3.5" />
+                Noter le vendeur
+              </Button>
             )}
           </div>
         </div>
       </div>
-    </button>
+    </div>
   );
 }

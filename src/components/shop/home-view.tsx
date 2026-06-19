@@ -2,28 +2,37 @@
 
 import { useAppStore } from "@/lib/store";
 import { Button } from "@/components/ui/button";
-import { Gamepad2, ShoppingBag, Zap, ShieldCheck, MessageCircle } from "lucide-react";
+import { Gamepad2, ShoppingBag, Zap, ShieldCheck, MessageCircle, Star } from "lucide-react";
 import type { Game, Listing } from "@/lib/types";
 import { formatFCFA } from "@/lib/types";
 import { useEffect, useState } from "react";
+import { RatingBadge } from "./rating-modal";
 
 export function HomeView() {
-  const { games, setActiveTab, setSelectedGameId, setPendingListing } = useAppStore();
+  const { games, setActiveTab, setSelectedGameId, setPendingListingId, setLoginOpen, me } =
+    useAppStore();
   const [featured, setFeatured] = useState<Listing[]>([]);
 
   useEffect(() => {
     (async () => {
       try {
-        const r = await fetch("/api/listings?all=true");
+        const r = await fetch("/api/listings?all=true&sort=recent");
         if (!r.ok) return;
         const d = await r.json();
-        // Take 4 most recent listings
         setFeatured((d.listings ?? []).slice(0, 4));
       } catch {
         /* noop */
       }
     })();
   }, []);
+
+  function buy(l: Listing) {
+    if (!me) {
+      setLoginOpen(true);
+      return;
+    }
+    setPendingListingId(l.id);
+  }
 
   return (
     <div className="space-y-12 pb-12">
@@ -144,7 +153,7 @@ export function HomeView() {
               <ListingMiniCard
                 key={l.id}
                 listing={l}
-                onBuy={() => setPendingListing(l)}
+                onBuy={() => buy(l)}
               />
             ))}
           </div>
@@ -225,6 +234,11 @@ function ListingMiniCard({
         <p className="text-xs text-slate-500 mt-0.5 line-clamp-2 flex-1">
           {listing.description}
         </p>
+        {listing.ratings && listing.ratings.length > 0 && (
+          <div className="mt-1">
+            <RatingBadge ratings={listing.ratings} />
+          </div>
+        )}
         <div className="flex items-center justify-between mt-3">
           <span className="font-extrabold text-fuchsia-600 text-base">
             {formatFCFA(listing.price)}
@@ -232,8 +246,11 @@ function ListingMiniCard({
           <Button
             size="sm"
             onClick={onBuy}
-            className="h-8 rounded-full bg-gradient-to-r from-fuchsia-600 to-orange-500 text-white text-xs font-bold"
+            className="h-8 rounded-full bg-gradient-to-r from-sky-500 to-cyan-500 text-white text-xs font-bold"
           >
+            <span className="size-3.5 rounded-full bg-white/20 grid place-items-center text-[8px] font-bold">
+              W
+            </span>
             Acheter
           </Button>
         </div>

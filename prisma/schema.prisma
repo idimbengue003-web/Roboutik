@@ -10,17 +10,23 @@ datasource db {
 }
 
 model User {
-  id        String   @id @default(cuid())
-  username  String   @unique
-  avatar    String?
-  isSeller  Boolean  @default(false)
-  balance   Int      @default(0) // accumulated validated funds (in FCFA)
-  createdAt DateTime @default(now())
+  id         String   @id @default(cuid())
+  email      String   @unique
+  username   String
+  avatar     String?
+  googleSub  String?  @unique
+  isSeller   Boolean  @default(false)
+  balance    Int      @default(0) // accumulated validated funds (in FCFA)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
-  listings     Listing[] @relation("SellerListings")
-  buyerOrders  Order[]   @relation("BuyerOrders")
-  sellerOrders Order[]   @relation("SellerOrders")
-  messages     Message[]
+  listings       Listing[]     @relation("SellerListings")
+  buyerOrders    Order[]       @relation("BuyerOrders")
+  sellerOrders   Order[]       @relation("SellerOrders")
+  messages       Message[]
+  ratingsGiven   Rating[]      @relation("RatingFrom")
+  ratingsReceived Rating[]     @relation("RatingTo")
+  withdrawals    Withdrawal[]
 }
 
 model Game {
@@ -49,24 +55,31 @@ model Listing {
   active      Boolean  @default(true)
   createdAt   DateTime @default(now())
 
-  orders Order[]
+  orders  Order[]
+  ratings Rating[]
 }
 
 model Order {
-  id        String   @id @default(cuid())
-  listingId String
-  listing   Listing  @relation(fields: [listingId], references: [id])
-  buyerId   String
-  buyer     User     @relation("BuyerOrders", fields: [buyerId], references: [id])
-  sellerId  String
-  seller    User     @relation("SellerOrders", fields: [sellerId], references: [id])
-  amount    Int // in FCFA
+  id             String    @id @default(cuid())
+  listingId      String
+  listing        Listing   @relation(fields: [listingId], references: [id])
+  buyerId        String
+  buyer          User      @relation("BuyerOrders", fields: [buyerId], references: [id])
+  sellerId       String
+  seller         User      @relation("SellerOrders", fields: [sellerId], references: [id])
+  amount         Int // in FCFA
   // PENDING_PAYMENT -> PAID -> DELIVERED -> VALIDATED  |  CANCELLED
-  status    String   @default("PENDING_PAYMENT")
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  status         String    @default("PENDING_PAYMENT")
+  paidAt         DateTime?
+  deliveredAt    DateTime?
+  // Auto-validation target time (paidAt + 24h). Buyer must validate before this or it auto-validates.
+  autoValidateAt DateTime?
+  validatedAt    DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
   messages Message[]
+  rating   Rating?
 }
 
 model Message {
@@ -78,4 +91,30 @@ model Message {
   content   String
   isAuto    Boolean  @default(false) // seller auto-message simulation
   createdAt DateTime @default(now())
+}
+
+model Rating {
+  id         String   @id @default(cuid())
+  orderId    String   @unique
+  order      Order    @relation(fields: [orderId], references: [id])
+  listingId  String
+  listing    Listing  @relation(fields: [listingId], references: [id])
+  fromUserId String
+  fromUser   User     @relation("RatingFrom", fields: [fromUserId], references: [id])
+  toUserId   String
+  toUser     User     @relation("RatingTo", fields: [toUserId], references: [id])
+  stars      Int // 1-5
+  comment    String?
+  createdAt  DateTime @default(now())
+}
+
+model Withdrawal {
+  id         String   @id @default(cuid())
+  sellerId   String
+  seller     User     @relation(fields: [sellerId], references: [id])
+  amount     Int // in FCFA
+  waveNumber String
+  status     String   @default("PENDING") // PENDING | COMPLETED | REJECTED
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 }

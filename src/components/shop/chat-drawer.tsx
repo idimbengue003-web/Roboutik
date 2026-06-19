@@ -17,23 +17,24 @@ import {
   Package,
   Clock,
   ShieldCheck,
+  Star,
 } from "lucide-react";
 import { useEffect, useRef, useState, useCallback } from "react";
 import type { Order, Message } from "@/lib/types";
-import { formatFCFA, STATUS_LABEL, STATUS_COLOR } from "@/lib/types";
+import { formatFCFA, STATUS_LABEL, STATUS_COLOR, formatCountdown } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
 
 export function ChatDrawer() {
-  const { activeOrderId, setActiveOrderId, me, bumpOrders } = useAppStore();
+  const { activeOrderId, setActiveOrderId, me, bumpOrders, setRateOrderId } = useAppStore();
   const [order, setOrder] = useState<Order | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
   const [validating, setValidating] = useState(false);
+  const [now, setNow] = useState(Date.now());
   const scrollRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
 
-  // Fetch order + messages
   const load = useCallback(async () => {
     if (!activeOrderId) return;
     try {
@@ -60,14 +61,16 @@ export function ChatDrawer() {
     }
   }, [activeOrderId, load]);
 
-  // Poll for new messages every 2.5s when open
+  // Poll for new messages + countdown tick
   useEffect(() => {
     if (!activeOrderId) return;
-    const t = setInterval(load, 2500);
+    const t = setInterval(() => {
+      load();
+      setNow(Date.now());
+    }, 2500);
     return () => clearInterval(t);
   }, [activeOrderId, load]);
 
-  // Scroll to bottom when messages change
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
@@ -133,6 +136,12 @@ export function ChatDrawer() {
   const open = !!activeOrderId;
   const status = order?.status;
   const canValidate = status === "DELIVERED";
+  const canRate = status === "VALIDATED" && !order?.rating;
+
+  const autoMs =
+    order?.autoValidateAt && (status === "PAID" || status === "DELIVERED")
+      ? new Date(order.autoValidateAt).getTime() - now
+      : null;
 
   return (
     <Sheet
@@ -202,9 +211,36 @@ export function ChatDrawer() {
           </div>
         )}
         {status === "VALIDATED" && (
-          <div className="bg-emerald-50 border-b border-emerald-200 px-4 py-2.5 flex items-center gap-2 text-xs text-emerald-800">
-            <ShieldCheck className="size-4 shrink-0" />
-            Commande terminée. Le vendeur a reçu son paiement.
+          <div className="bg-emerald-50 border-b border-emerald-200 px-4 py-2.5 flex items-center justify-between gap-2 text-xs text-emerald-800">
+            <div className="flex items-center gap-2">
+              <ShieldCheck className="size-4 shrink-0" />
+              Commande terminée. Le vendeur a reçu son paiement.
+            </div>
+            {canRate && order && (
+              <button
+                onClick={() => {
+                  setRateOrderId(order.id);
+                  setActiveOrderId(null);
+                }}
+                className="inline-flex items-center gap-1 rounded-full bg-amber-100 hover:bg-amber-200 text-amber-800 font-bold px-2 py-1"
+              >
+                <Star className="size-3 fill-amber-500 text-amber-500" />
+                Noter
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* Auto-validation countdown banner */}
+        {autoMs !== null && autoMs > 0 && (
+          <div className="bg-slate-900 text-white px-4 py-2.5 flex items-center justify-between gap-3 text-xs">
+            <div className="flex items-center gap-2">
+              <Clock className="size-4 text-amber-300" />
+              <span>Validation automatique dans</span>
+            </div>
+            <span className="font-bold tabular-nums text-amber-300">
+              {formatCountdown(autoMs)}
+            </span>
           </div>
         )}
 
@@ -258,10 +294,7 @@ export function ChatDrawer() {
         {/* Quick reply chips when status is PAID */}
         {status === "PAID" && (
           <div className="px-3 py-2 bg-white border-t flex gap-2 overflow-x-auto">
-            <QuickChip
-              label="Bonjour 👋"
-              onClick={() => setInput("Bonjour 👋")}
-            />
+            <QuickChip label="Bonjour 👋" onClick={() => setInput("Bonjour 👋")} />
             <QuickChip
               label="Je suis prêt·e"
               onClick={() => setInput("Je suis prêt·e, tu peux livrer !")}

@@ -2,40 +2,34 @@
 
 import { useEffect, useState } from "react";
 import { useAppStore } from "@/lib/store";
+import { useSession } from "@/lib/session";
 import { Header } from "@/components/shop/header";
 import { Footer } from "@/components/shop/footer";
 import { HomeView } from "@/components/shop/home-view";
 import { GamesView } from "@/components/shop/games-view";
 import { OrdersView } from "@/components/shop/orders-view";
-import { WavePaymentModal } from "@/components/shop/wave-payment-modal";
+import { SellerView } from "@/components/shop/seller-view";
+import { PaymentView } from "@/components/shop/payment-view";
 import { ChatDrawer } from "@/components/shop/chat-drawer";
+import { GoogleLoginModal } from "@/components/shop/google-login";
+import { RatingModal } from "@/components/shop/rating-modal";
 import { Loader2 } from "lucide-react";
 
 export default function Home() {
-  const { activeTab, me, setMe, games, setGames } = useAppStore();
+  const { activeTab, setGames, pendingListingId, setActiveTab, setMe } = useAppStore();
+  const { loading: sessionLoading } = useSession();
   const [booting, setBooting] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Init on first load: seed data, fetch me + games
+  // Init seed + load games
   useEffect(() => {
     (async () => {
       try {
-        // 1. Init seed
         await fetch("/api/init");
-
-        // 2. Load games + me in parallel
-        const [gamesRes, meRes] = await Promise.all([
-          fetch("/api/games"),
-          fetch("/api/me"),
-        ]);
-
+        const gamesRes = await fetch("/api/games");
         if (gamesRes.ok) {
           const d = await gamesRes.json();
           setGames(d.games ?? []);
-        }
-        if (meRes.ok) {
-          const d = await meRes.json();
-          setMe(d.user ?? null);
         }
       } catch (e) {
         setError(e instanceof Error ? e.message : "Erreur d'initialisation");
@@ -43,9 +37,17 @@ export default function Home() {
         setBooting(false);
       }
     })();
-  }, [setGames, setMe]);
+  }, [setGames]);
 
-  if (booting) {
+  // When pendingListingId is set, force-switch to a "payment" pseudo-tab
+  useEffect(() => {
+    if (pendingListingId && activeTab !== "home" && activeTab !== "games" && activeTab !== "orders" && activeTab !== "seller") {
+      // fallback
+      setActiveTab("home");
+    }
+  }, [pendingListingId, activeTab, setActiveTab]);
+
+  if (booting || sessionLoading) {
     return (
       <div className="min-h-screen grid place-items-center bg-gradient-to-br from-fuchsia-50 via-white to-orange-50">
         <div className="flex flex-col items-center gap-3">
@@ -68,19 +70,30 @@ export default function Home() {
     );
   }
 
+  // Payment view takes over the screen when pendingListingId is set
+  const showPayment = !!pendingListingId;
+
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-b from-fuchsia-50/40 via-white to-orange-50/40">
       <Header />
       <main className="flex-1 w-full">
-        {activeTab === "home" && <HomeView />}
-        {activeTab === "games" && <GamesView />}
-        {activeTab === "orders" && <OrdersView />}
+        {showPayment ? (
+          <PaymentView />
+        ) : (
+          <>
+            {activeTab === "home" && <HomeView />}
+            {activeTab === "games" && <GamesView />}
+            {activeTab === "orders" && <OrdersView />}
+            {activeTab === "seller" && <SellerView />}
+          </>
+        )}
       </main>
-      <Footer />
+      {!showPayment && <Footer />}
 
       {/* Global overlays */}
-      <WavePaymentModal />
+      <GoogleLoginModal />
       <ChatDrawer />
+      <RatingModal />
     </div>
   );
 }

@@ -25,13 +25,19 @@ export async function POST(
       return NextResponse.json({ error: "Commande déjà payée ou annulée" }, { status: 400 });
     }
 
-    // Update order status to PAID
+    const now = new Date();
+    // Auto-validate 24 hours after payment (seller protection)
+    const autoValidateAt = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+
     await db.order.update({
       where: { id },
-      data: { status: "PAID" },
+      data: {
+        status: "PAID",
+        paidAt: now,
+        autoValidateAt,
+      },
     });
 
-    // Auto seller welcome message
     const sellerName = order.seller.username;
     const phone = wavePhone || "ton numéro Wave";
 
@@ -44,7 +50,6 @@ export async function POST(
       },
     });
 
-    // Refetch with messages
     const updated = await db.order.findUnique({
       where: { id },
       include: {

@@ -13,10 +13,24 @@ export type Game = {
 
 export type User = {
   id: string;
+  email: string;
   username: string;
   avatar: string | null;
+  googleSub: string | null;
   isSeller: boolean;
   balance: number;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type Rating = {
+  id: string;
+  orderId: string;
+  listingId: string;
+  fromUserId: string;
+  toUserId: string;
+  stars: number;
+  comment: string | null;
   createdAt: string;
 };
 
@@ -32,6 +46,7 @@ export type Listing = {
   gameId: string;
   seller?: User;
   game?: Game;
+  ratings?: Rating[];
 };
 
 export type OrderStatus =
@@ -58,12 +73,27 @@ export type Order = {
   sellerId: string;
   amount: number;
   status: OrderStatus;
+  paidAt: string | null;
+  deliveredAt: string | null;
+  autoValidateAt: string | null;
+  validatedAt: string | null;
   createdAt: string;
   updatedAt: string;
-  listing?: Listing & { game?: Game };
+  listing?: Listing & { game?: Game; ratings?: Rating[] };
   seller?: User;
   buyer?: User;
   messages?: Message[];
+  rating?: Rating | null;
+};
+
+export type Withdrawal = {
+  id: string;
+  sellerId: string;
+  amount: number;
+  waveNumber: string;
+  status: "PENDING" | "COMPLETED" | "REJECTED";
+  createdAt: string;
+  updatedAt: string;
 };
 
 export const STATUS_LABEL: Record<OrderStatus, string> = {
@@ -84,4 +114,15 @@ export const STATUS_COLOR: Record<OrderStatus, string> = {
 
 export function formatFCFA(n: number): string {
   return new Intl.NumberFormat("fr-FR").format(n) + " FCFA";
+}
+
+export function formatCountdown(ms: number): string {
+  if (ms <= 0) return "Terminé";
+  const totalSec = Math.floor(ms / 1000);
+  const h = Math.floor(totalSec / 3600);
+  const m = Math.floor((totalSec % 3600) / 60);
+  const s = totalSec % 60;
+  if (h > 0) return `${h}h ${m}min ${s}s`;
+  if (m > 0) return `${m}min ${s}s`;
+  return `${s}s`;
 }

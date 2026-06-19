@@ -1,37 +1,84 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 
-// GET /api/orders?buyerId=...   - buyer's orders
+// GET /api/orders?buyerId=...    or  ?sellerId=...
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const buyerId = searchParams.get("buyerId");
+  const sellerId = searchParams.get("sellerId");
 
-  if (!buyerId) {
-    return NextResponse.json({ error: "buyerId required" }, { status: 400 });
+  if (!buyerId && !sellerId) {
+    return NextResponse.json({ error: "buyerId or sellerId required" }, { status: 400 });
   }
 
+  const where = buyerId ? { buyerId } : { sellerId };
+
   const orders = await db.order.findMany({
-    where: { buyerId },
+    where,
     include: {
-      listing: { include: { game: true } },
+      listing: { include: { game: true, ratings: true } },
       seller: true,
+      buyer: true,
       messages: { orderBy: { createdAt: "asc" } },
+      rating: true,
     },
     orderBy: { createdAt: "desc" },
   });
 
-  return NextResponse.json({ orders });
+  // Auto-validate any orders past their autoValidateAt that are PAID or DELIVERED
+  const now = new Date();
+  for (const o of orders) {
+    if (
+      o.autoValidateAt &&
+      o.autoValidateAt < now &&
+      (o.status === "PAID" || o.status === "DELIVERED")
+    ) {
+      await db.$transaction([
+        db.order.update({
+          where: { id: o.id },
+          data: { status: "VALIDATED", validatedAt: now },
+        }),
+        db.user.update({
+          where: { id: o.sellerId },
+          data: { balance: { increment: o.amount } },
+        }),
+        db.message.create({
+          data: {
+            orderId: o.id,
+            senderId: o.sellerId,
+            content: `⏰ Validation automatique : les ${o.amount} FCFA ont été transférées sur mon solde Wave. Merci pour ta commande !`,
+            isAuto: true,
+          },
+        }),
+      ]);
+    }
+  }
+
+  // Refetch after potential auto-validations
+  const finalOrders = await db.order.findMany({
+    where,
+    include: {
+      listing: { include: { game: true, ratings: true } },
+      seller: true,
+      buyer: true,
+      messages: { orderBy: { createdAt: "asc" } },
+      rating: true,
+    },
+    orderBy: { createdAt: "desc" },
+  });
+
+  return NextResponse.json({ orders: finalOrders });
 }
 
 // POST /api/orders  - create a new order from a listing
-// body: { listingId }
+// body: { listingId, buyerId }
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { listingId } = body as { listingId?: string };
+    const { listingId, buyerId } = body as { listingId?: string; buyerId?: string };
 
-    if (!listingId) {
-      return NextResponse.json({ error: "listingId required" }, { status: 400 });
+    if (!listingId || !buyerId) {
+      return NextResponse.json({ error: "listingId and buyerId required" }, { status: 400 });
     }
 
     const listing = await db.listing.findUnique({
@@ -42,23 +89,17 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Listing not found" }, { status: 404 });
     }
 
-    const buyer = await db.user.findUnique({ where: { username: "Moi" } });
+    const buyer = await db.user.findUnique({ where: { id: buyerId } });
     if (!buyer) {
-      return NextResponse.json({ error: "Run /api/init first" }, { status: 400 });
+      return NextResponse.json({ error: "Connecte-toi avec Google d'abord" }, { status: 400 });
     }
 
-    // Prevent ordering own listing
     if (listing.sellerId === buyer.id) {
       return NextResponse.json({ error: "Tu ne peux pas acheter ton propre annonce" }, { status: 400 });
     }
 
-    // Check if there's already a PENDING_PAYMENT order for this listing by this buyer
     const existing = await db.order.findFirst({
-      where: {
-        listingId,
-        buyerId: buyer.id,
-        status: "PENDING_PAYMENT",
-      },
+      where: { listingId, buyerId: buyer.id, status: "PENDING_PAYMENT" },
     });
 
     if (existing) {

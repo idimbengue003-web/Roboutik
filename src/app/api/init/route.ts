@@ -6,9 +6,10 @@ export async function GET() {
   try {
     // 1. Users
     const buyer = await db.user.upsert({
-      where: { username: "Moi" },
+      where: { email: "moi@demo.local" },
       update: {},
       create: {
+        email: "moi@demo.local",
         username: "Moi",
         avatar: "🧒",
         isSeller: false,
@@ -17,18 +18,18 @@ export async function GET() {
     });
 
     const sellers = [
-      { username: "Vendeur ProMax", avatar: "🎮", balance: 0 },
-      { username: "Roblox King", avatar: "👑", balance: 0 },
-      { username: "GameShop SN", avatar: "🛒", balance: 0 },
-      { username: "Toko Jeux", avatar: "💰", balance: 0 },
+      { username: "Vendeur ProMax", email: "vendeur1@demo.local", avatar: "🎮", balance: 12500 },
+      { username: "Roblox King", email: "vendeur2@demo.local", avatar: "👑", balance: 8500 },
+      { username: "GameShop SN", email: "vendeur3@demo.local", avatar: "🛒", balance: 0 },
+      { username: "Toko Jeux", email: "vendeur4@demo.local", avatar: "💰", balance: 3000 },
     ];
 
     const sellerRecords = [];
     for (const s of sellers) {
       const u = await db.user.upsert({
-        where: { username: s.username },
+        where: { email: s.email },
         update: {},
-        create: s,
+        create: { ...s, isSeller: true },
       });
       sellerRecords.push(u);
     }

@@ -2,15 +2,17 @@
 
 import { useAppStore } from "@/lib/store";
 import { Button } from "@/components/ui/button";
-import { Home, Gamepad2, ShoppingBag, Sparkles } from "lucide-react";
+import { Home, Gamepad2, ShoppingBag, Sparkles, Store } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useEffect, useState } from "react";
+import { UserChip } from "./google-login";
+import { useSession } from "@/lib/session";
 
 export function Header() {
   const { activeTab, setActiveTab, me, ordersVersion } = useAppStore();
+  const { loading } = useSession();
   const [orderCount, setOrderCount] = useState(0);
 
-  // Fetch pending orders count for the badge
   useEffect(() => {
     if (!me) return;
     let cancelled = false;
@@ -36,11 +38,16 @@ export function Header() {
     };
   }, [me, ordersVersion]);
 
-  const tabs: { id: typeof activeTab; label: string; icon: typeof Home }[] = [
+  const tabs: { id: typeof activeTab; label: string; icon: typeof Home; needsAuth?: boolean }[] = [
     { id: "home", label: "Accueil", icon: Home },
     { id: "games", label: "Jeux Roblox", icon: Gamepad2 },
-    { id: "orders", label: "Mes Commandes", icon: ShoppingBag },
+    { id: "orders", label: "Mes Commandes", icon: ShoppingBag, needsAuth: true },
+    { id: "seller", label: "Vendeur", icon: Store, needsAuth: true },
   ];
+
+  const visibleTabs = tabs.filter((t) => !t.needsAuth || me);
+  // Show 0 if not logged in
+  const displayCount = me ? orderCount : 0;
 
   return (
     <header className="sticky top-0 z-40 w-full border-b bg-white/95 backdrop-blur shadow-sm">
@@ -60,7 +67,7 @@ export function Header() {
 
         {/* Tabs */}
         <nav className="flex items-center gap-1 sm:gap-2">
-          {tabs.map((t) => {
+          {visibleTabs.map((t) => {
             const Icon = t.icon;
             const active = activeTab === t.id;
             return (
@@ -70,22 +77,25 @@ export function Header() {
                 size="sm"
                 onClick={() => setActiveTab(t.id)}
                 className={cn(
-                  "relative h-10 rounded-full px-3 sm:px-4 text-sm font-semibold transition-all",
+                  "relative h-10 rounded-full px-2.5 sm:px-4 text-sm font-semibold transition-all",
                   active
                     ? "bg-gradient-to-r from-fuchsia-600 to-orange-500 text-white shadow-md"
                     : "text-slate-700 hover:bg-slate-100"
                 )}
               >
                 <Icon className="size-4" />
-                <span className="hidden sm:inline">{t.label}</span>
-                {t.id === "orders" && orderCount > 0 && (
+                <span className="hidden lg:inline">{t.label}</span>
+                {t.id === "orders" && displayCount > 0 && (
                   <span className="absolute -right-1 -top-1 grid size-5 place-items-center rounded-full bg-rose-500 text-[10px] font-bold text-white ring-2 ring-white">
-                    {orderCount}
+                    {displayCount}
                   </span>
                 )}
               </Button>
             );
           })}
+
+          {/* User chip / login */}
+          {!loading && <UserChip />}
         </nav>
       </div>
     </header>
