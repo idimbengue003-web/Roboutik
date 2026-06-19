@@ -1,66 +1,55 @@
 import NextAuth, { type NextAuthOptions } from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
-import { PrismaAdapter } from "@auth/prisma-adapter";
 import { db } from "@/lib/db";
-import type { Adapter } from "next-auth/adapters";
 
 /**
  * NextAuth configuration for Roboutik.
  *
+ * We do NOT use PrismaAdapter because our User schema is custom (no name/
+ * emailVerified/image fields). Instead we manage user creation/linking
+ * directly in the signIn callback. JWT carries the user id so the client
+ * can fetch the full user via /api/me.
+ *
  * Required env vars:
  *  - GOOGLE_CLIENT_ID
  *  - GOOGLE_CLIENT_SECRET
- *  - NEXTAUTH_SECRET (random 32+ chars string, used to sign session JWTs)
- *  - NEXTAUTH_URL (e.g. https://roboutik.vercel.app in prod, http://localhost:3000 in dev)
+ *  - NEXTAUTH_SECRET (random 32+ chars)
+ *  - NEXTAUTH_URL (https://roboutik.vercel.app in prod)
  *
- * In Google Cloud Console, create an OAuth 2.0 Client ID and add:
- *  - Authorized JavaScript origin: https://roboutik.vercel.app + http://localhost:3000
- *  - Authorized redirect URI:
+ * Google Cloud Console:
+ *  - Authorized JavaScript origins: https://roboutik.vercel.app
+ *  - Authorized redirect URIs:
  *      https://roboutik.vercel.app/api/auth/callback/google
- *      http://localhost:3000/api/auth/callback/google
  */
 
 export const authOptions: NextAuthOptions = {
-  // PrismaAdapter handles user/account/session persistence in our DB
-  adapter: PrismaAdapter(db) as Adapter,
   session: {
-    // Use JWT strategy — required for Vercel serverless (no DB session reads on every request)
     strategy: "jwt",
   },
   providers: [
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID || "",
       clientSecret: process.env.GOOGLE_CLIENT_SECRET || "",
-      authorization: {
-        params: {
-          // Request basic profile + email
-          scope: "openid email profile",
-          prompt: "select_account",
-        },
-      },
     }),
   ],
   callbacks: {
     /**
-     * On sign-in: ensure our User row exists in Prisma with the right fields.
-     * PrismaAdapter creates User automatically, but we need to backfill
-     * username/avatar because Google doesn't provide a Roboutik-style username.
+     * On sign-in: find or create our Roboutik user with all custom fields.
      */
-    async signIn({ user, account, profile }) {
-      if (!user.email) return false;
+    async signIn({ user, account }) {
+      if (!user?.email) return false;
 
-      // Find or create the user in our DB with all required fields
-      const existing = await db.user.findUnique({
+      let dbUser = await db.user.findUnique({
         where: { email: user.email },
       });
 
-      if (!existing) {
-        // Create with sensible defaults; user can edit later
+      if (!dbUser) {
+        // Create new user with sensible defaults
         const username =
-          (profile?.name as string | undefined)?.trim() ||
+          (user.name || "").trim().slice(0, 20) ||
           user.email.split("@")[0].slice(0, 20) ||
           "Joueur";
-        await db.user.create({
+        dbUser = await db.user.create({
           data: {
             email: user.email,
             username,
@@ -71,18 +60,18 @@ export const authOptions: NextAuthOptions = {
             balance: 0,
           },
         });
-      } else if (!existing.googleSub && account?.providerAccountId) {
-        // Link googleSub to existing account
-        await db.user.update({
-          where: { id: existing.id },
+      } else if (!dbUser.googleSub && account?.providerAccountId) {
+        // Link googleSub if missing
+        dbUser = await db.user.update({
+          where: { id: dbUser.id },
           data: { googleSub: account.providerAccountId },
         });
       }
 
-      // Block banned users from signing in
-      if (existing?.isBanned) {
+      // Block banned users
+      if (dbUser.isBanned) {
         return `/api/auth/signin?error=banned&reason=${encodeURIComponent(
-          existing.banReason ?? "Ton compte est banni. Contacte le support."
+          dbUser.banReason ?? "Ton compte est banni. Contacte le support."
         )}`;
       }
 
@@ -90,14 +79,13 @@ export const authOptions: NextAuthOptions = {
     },
 
     /**
-     * Inject the Prisma user id into the JWT so we can use it in API routes
-     * and on the client to fetch the full user object from /api/me.
+     * jwt callback: inject the Prisma user id into the JWT.
      */
-    async jwt({ token, user, account }) {
-      // On first sign-in: user is defined
-      if (user?.email) {
+    async jwt({ token, user, trigger }) {
+      const emailForLookup = user?.email || token.email;
+      if (emailForLookup) {
         const dbUser = await db.user.findUnique({
-          where: { email: user.email },
+          where: { email: emailForLookup as string },
         });
         if (dbUser) {
           token.userId = dbUser.id;
@@ -107,8 +95,8 @@ export const authOptions: NextAuthOptions = {
           token.isBanned = dbUser.isBanned;
         }
       }
-      // Refresh on subsequent calls (in case user was banned since)
-      if (token.userId && !user) {
+      // Refresh on subsequent calls (in case user was banned/promoted)
+      if (token.userId && trigger !== "signIn" && !user) {
         const dbUser = await db.user.findUnique({
           where: { id: token.userId as string },
         });
@@ -123,7 +111,7 @@ export const authOptions: NextAuthOptions = {
     },
 
     /**
-     * Forward token fields to the client session.
+     * session callback: forward token fields to the client.
      */
     async session({ session, token }) {
       if (session.user) {
@@ -145,9 +133,9 @@ export const authOptions: NextAuthOptions = {
     },
   },
   pages: {
-    // We'll use the default NextAuth sign-in page for now; can customize later
     signIn: "/api/auth/signin",
   },
+  debug: false,
 };
 
 const handler = NextAuth(authOptions);
