@@ -38,6 +38,9 @@ export type Listing = {
   id: string;
   title: string;
   description: string;
+  // sellerNetPrice: amount the seller wants to receive (net)
+  sellerNetPrice: number;
+  // price: amount the buyer pays (incl. 20% commission, = sellerNetPrice * 1.2)
   price: number;
   image: string | null;
   active: boolean;
@@ -71,7 +74,10 @@ export type Order = {
   listingId: string;
   buyerId: string;
   sellerId: string;
+  // amount: total paid by buyer (incl. 20% commission)
   amount: number;
+  // sellerNetAmount: net amount the seller receives (snapshot at order time)
+  sellerNetAmount: number;
   status: OrderStatus;
   paidAt: string | null;
   deliveredAt: string | null;
@@ -85,6 +91,21 @@ export type Order = {
   messages?: Message[];
   rating?: Rating | null;
 };
+
+// Helper: compute commission for an order (= amount - sellerNetAmount)
+export function commissionOf(order: { amount: number; sellerNetAmount: number }): number {
+  return order.amount - order.sellerNetAmount;
+}
+
+// Helper: compute buyer price from seller net price (sellerNet * 1.2, rounded)
+export function buyerPriceFromSellerNet(sellerNetPrice: number): number {
+  return Math.round(sellerNetPrice * 1.2);
+}
+
+// Helper: compute commission from seller net price (= buyerPrice - sellerNet)
+export function commissionFromSellerNet(sellerNetPrice: number): number {
+  return buyerPriceFromSellerNet(sellerNetPrice) - sellerNetPrice;
+}
 
 export type Withdrawal = {
   id: string;

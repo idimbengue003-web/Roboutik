@@ -30,6 +30,8 @@ export async function POST(
     }
 
     const now = new Date();
+    // Credit seller with NET amount (excl. commission). Commission is kept by the platform.
+    const netAmount = order.sellerNetAmount;
     await db.$transaction([
       db.order.update({
         where: { id },
@@ -37,13 +39,13 @@ export async function POST(
       }),
       db.user.update({
         where: { id: order.sellerId },
-        data: { balance: { increment: order.amount } },
+        data: { balance: { increment: netAmount } },
       }),
       db.message.create({
         data: {
           orderId: order.id,
           senderId: order.sellerId,
-          content: `Merci beaucoup ! 🎉 Tu as validé la commande. Les ${order.amount} FCFA ont bien été transférées sur mon solde Wave. À bientôt pour de nouveaux achats !`,
+          content: `Merci beaucoup ! 🎉 Tu as validé la commande. ${netAmount} FCFA (montant net) ont été transférés sur mon solde Wave. À bientôt pour de nouveaux achats !`,
           isAuto: true,
         },
       }),

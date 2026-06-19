@@ -212,11 +212,15 @@ export async function GET() {
         where: { title: l.title, gameId: game.id },
       });
       if (existing) continue;
+      // l.price is the seller's net price; compute buyer price with 20% commission
+      const sellerNetPrice = l.price;
+      const buyerPrice = Math.round(sellerNetPrice * 1.2);
       await db.listing.create({
         data: {
           title: l.title,
           description: l.description,
-          price: l.price,
+          sellerNetPrice,
+          price: buyerPrice,
           sellerId: sellerRecords[l.sellerIdx].id,
           gameId: game.id,
           active: true,

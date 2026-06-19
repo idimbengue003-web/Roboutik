@@ -16,28 +16,30 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({ listings });
 }
 
-// POST /api/seller/listings  body: { userId, gameId, title, description, price }
+// POST /api/seller/listings
+// body: { userId, gameId, title, description, sellerNetPrice }
+// The buyer price (price) is automatically computed = sellerNetPrice * 1.2 (20% commission)
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { userId, gameId, title, description, price } = body as {
+    const { userId, gameId, title, description, sellerNetPrice } = body as {
       userId?: string;
       gameId?: string;
       title?: string;
       description?: string;
-      price?: number;
+      sellerNetPrice?: number;
     };
 
-    if (!userId || !gameId || !title || !description || !price) {
+    if (!userId || !gameId || !title || !description || !sellerNetPrice) {
       return NextResponse.json(
         { error: "Tous les champs sont requis" },
         { status: 400 }
       );
     }
 
-    if (price < 100 || price > 1_000_000) {
+    if (sellerNetPrice < 100 || sellerNetPrice > 1_000_000) {
       return NextResponse.json(
-        { error: "Prix entre 100 et 1 000 000 FCFA" },
+        { error: "Prix net entre 100 et 1 000 000 FCFA" },
         { status: 400 }
       );
     }
@@ -53,19 +55,24 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Compute buyer price: sellerNetPrice + 20% commission
+    const buyerPrice = Math.round(sellerNetPrice * 1.2);
+    const commission = buyerPrice - sellerNetPrice;
+
     const listing = await db.listing.create({
       data: {
         sellerId: userId,
         gameId,
         title: title.trim(),
         description: description.trim(),
-        price,
+        sellerNetPrice,
+        price: buyerPrice,
         active: true,
       },
       include: { game: true, seller: true },
     });
 
-    return NextResponse.json({ listing });
+    return NextResponse.json({ listing, commission, buyerPrice });
   } catch (e) {
     return NextResponse.json(
       { error: e instanceof Error ? e.message : "Unknown error" },

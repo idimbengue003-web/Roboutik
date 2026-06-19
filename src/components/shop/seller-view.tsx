@@ -25,6 +25,7 @@ import {
   CheckCircle2,
   Clock,
   X,
+  Percent,
 } from "lucide-react";
 import { useEffect, useState, useCallback } from "react";
 import type { Listing, Order, User, Withdrawal, Game } from "@/lib/types";
@@ -36,6 +37,8 @@ type SellerData = {
   user: User;
   balance: number;
   totalEarnings: number;
+  totalCommission: number;
+  totalGross: number;
   withdrawnTotal: number;
   pendingWithdrawals: number;
   available: number;
@@ -130,7 +133,7 @@ export function SellerView() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
         <StatCard
           icon={<Wallet className="size-5 text-emerald-600" />}
           label="Solde disponible"
@@ -139,7 +142,7 @@ export function SellerView() {
         />
         <StatCard
           icon={<TrendingUp className="size-5 text-sky-600" />}
-          label="Gains totaux"
+          label="Gains nets"
           value={formatFCFA(data.totalEarnings)}
           tint="bg-sky-50"
         />
@@ -154,6 +157,12 @@ export function SellerView() {
           label="Annonces actives"
           value={`${data.listings.filter((l) => l.active).length} / ${data.listings.length}`}
           tint="bg-fuchsia-50"
+        />
+        <StatCard
+          icon={<Percent className="size-5 text-amber-600" />}
+          label="Commission 20%"
+          value={formatFCFA(data.totalCommission ?? 0)}
+          tint="bg-amber-50"
         />
       </div>
 
@@ -501,10 +510,18 @@ function SellerListingCard({
         <p className="text-xs text-slate-500 mt-0.5 line-clamp-1">
           {listing.game?.name}
         </p>
-        <div className="flex items-center justify-between mt-1">
-          <span className="font-bold text-fuchsia-600 text-sm">
-            {formatFCFA(listing.price)}
-          </span>
+        <div className="flex items-center justify-between mt-1 gap-2">
+          <div className="flex flex-col">
+            <span className="font-bold text-fuchsia-600 text-sm tabular-nums">
+              {formatFCFA(listing.price)}
+              <span className="text-[10px] font-medium text-slate-400 ml-1">
+                acheteur
+              </span>
+            </span>
+            <span className="text-[11px] text-emerald-600 font-semibold tabular-nums">
+              Net : {formatFCFA(listing.sellerNetPrice ?? Math.round(listing.price / 1.2))}
+            </span>
+          </div>
           <RatingBadge ratings={listing.ratings} />
         </div>
         <p className="text-[11px] text-slate-400 mt-1">
@@ -551,20 +568,25 @@ function CreateListingDialog({
   const { toast } = useToast();
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [price, setPrice] = useState("");
+  const [sellerNetPrice, setSellerNetPrice] = useState("");
   const [gameId, setGameId] = useState("");
   const [saving, setSaving] = useState(false);
 
   function reset() {
     setTitle("");
     setDescription("");
-    setPrice("");
+    setSellerNetPrice("");
     setGameId("");
   }
 
+  // Compute buyer price and commission in real-time
+  const sellerNet = Number(sellerNetPrice) || 0;
+  const buyerPrice = Math.round(sellerNet * 1.2);
+  const commission = buyerPrice - sellerNet;
+
   async function submit() {
     if (!me) return;
-    if (!title.trim() || !description.trim() || !price || !gameId) {
+    if (!title.trim() || !description.trim() || !sellerNetPrice || !gameId) {
       toast({
         title: "Tous les champs sont requis",
         variant: "destructive",
@@ -581,7 +603,7 @@ function CreateListingDialog({
           gameId,
           title: title.trim(),
           description: description.trim(),
-          price: Number(price),
+          sellerNetPrice: Number(sellerNetPrice),
         }),
       });
       if (!r.ok) {
@@ -648,21 +670,57 @@ function CreateListingDialog({
               maxLength={500}
             />
           </div>
-          <div>
-            <Label className="text-sm font-semibold">Prix (FCFA)</Label>
-            <Input
-              type="number"
-              inputMode="numeric"
-              value={price}
-              onChange={(e) => setPrice(e.target.value)}
-              placeholder="Ex : 2000"
-              className="mt-1 rounded-xl"
-              min={100}
-              max={1_000_000}
-            />
-            <p className="text-[11px] text-slate-400 mt-1">
-              Entre 100 et 1 000 000 FCFA.
-            </p>
+          {/* TWO PRICE FIELDS — top: seller net, bottom: buyer price (auto +20%) */}
+          <div className="rounded-2xl bg-slate-50 p-3 space-y-3 border border-slate-200">
+            <div>
+              <Label className="text-sm font-semibold flex items-center gap-1.5">
+                💰 Ton prix net
+                <span className="text-[10px] font-medium text-slate-500 bg-slate-200 rounded-full px-2 py-0.5">
+                  ce que tu reçois
+                </span>
+              </Label>
+              <div className="relative mt-1">
+                <Input
+                  type="number"
+                  inputMode="numeric"
+                  value={sellerNetPrice}
+                  onChange={(e) => setSellerNetPrice(e.target.value)}
+                  placeholder="Ex : 2000"
+                  className="rounded-xl pr-16 text-lg font-bold h-12"
+                  min={100}
+                  max={1_000_000}
+                />
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">
+                  FCFA
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-500 mt-1">
+                Entre 100 et 1 000 000 FCFA.
+              </p>
+            </div>
+
+            {/* Auto-computed buyer price (read-only) */}
+            <div className="rounded-xl bg-gradient-to-br from-fuchsia-50 to-orange-50 border border-fuchsia-200 p-3">
+              <Label className="text-[11px] font-bold uppercase tracking-wide text-fuchsia-700 flex items-center gap-1.5">
+                🛒 Prix affiché aux acheteurs
+                <span className="text-[10px] font-medium text-fuchsia-600 bg-fuchsia-100 rounded-full px-2 py-0.5 normal-case tracking-normal">
+                  +20% commission
+                </span>
+              </Label>
+              <div className="mt-1 flex items-baseline gap-2">
+                <span className="text-2xl font-extrabold text-fuchsia-700 tabular-nums">
+                  {buyerPrice > 0 ? formatFCFA(buyerPrice) : "—"}
+                </span>
+                {sellerNet > 0 && (
+                  <span className="text-[11px] text-slate-500">
+                    (commission plateforme : {formatFCFA(commission)})
+                  </span>
+                )}
+              </div>
+              <p className="text-[10px] text-slate-400 mt-1">
+                L'acheteur paie ce montant. Tu reçois ton prix net à la validation.
+              </p>
+            </div>
           </div>
         </div>
 

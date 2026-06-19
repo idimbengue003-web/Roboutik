@@ -54,7 +54,18 @@ export async function GET(req: NextRequest) {
     }),
   ]);
 
-  const totalEarnings = validatedOrders.reduce((s, o) => s + o.amount, 0);
+  // totalEarnings = net amount the seller has earned (excl. commission)
+  // totalCommission = commission kept by the platform on the seller's sales
+  // totalGross = total amount paid by buyers (incl. commission)
+  const totalEarnings = validatedOrders.reduce(
+    (s, o) => s + (o.sellerNetAmount ?? 0),
+    0
+  );
+  const totalCommission = validatedOrders.reduce(
+    (s, o) => s + (o.amount - (o.sellerNetAmount ?? 0)),
+    0
+  );
+  const totalGross = validatedOrders.reduce((s, o) => s + o.amount, 0);
   const withdrawnTotal = withdrawals
     .filter((w) => w.status === "COMPLETED")
     .reduce((s, w) => s + w.amount, 0);
@@ -65,7 +76,9 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({
     user,
     balance: user.balance,
-    totalEarnings,
+    totalEarnings, // net amount seller earned
+    totalCommission, // 20% commission kept by platform
+    totalGross, // total amount buyers paid
     withdrawnTotal,
     pendingWithdrawals,
     available: user.balance,

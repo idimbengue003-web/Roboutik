@@ -33,6 +33,8 @@ export async function GET(req: NextRequest) {
       o.autoValidateAt < now &&
       (o.status === "PAID" || o.status === "DELIVERED")
     ) {
+      // Credit seller with their NET amount (excl. commission). Commission is kept by the platform.
+      const netAmount = o.sellerNetAmount;
       await db.$transaction([
         db.order.update({
           where: { id: o.id },
@@ -40,13 +42,13 @@ export async function GET(req: NextRequest) {
         }),
         db.user.update({
           where: { id: o.sellerId },
-          data: { balance: { increment: o.amount } },
+          data: { balance: { increment: netAmount } },
         }),
         db.message.create({
           data: {
             orderId: o.id,
             senderId: o.sellerId,
-            content: `⏰ Validation automatique : les ${o.amount} FCFA ont été transférées sur mon solde Wave. Merci pour ta commande !`,
+            content: `⏰ Validation automatique : ${netAmount} FCFA (montant net) ont été transférés sur mon solde Wave. Merci pour ta commande !`,
             isAuto: true,
           },
         }),
@@ -111,7 +113,8 @@ export async function POST(req: NextRequest) {
         listingId,
         buyerId: buyer.id,
         sellerId: listing.sellerId,
-        amount: listing.price,
+        amount: listing.price, // total paid by buyer (incl. commission)
+        sellerNetAmount: listing.sellerNetPrice, // net amount seller will receive (snapshot)
         status: "PENDING_PAYMENT",
       },
       include: {
