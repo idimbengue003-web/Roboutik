@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useAppStore } from "@/lib/store";
-import { useSession } from "@/lib/session";
+import { useAuth } from "@/lib/auth";
 import { Header } from "@/components/shop/header";
 import { Footer } from "@/components/shop/footer";
 import { HomeView } from "@/components/shop/home-view";
@@ -23,7 +23,7 @@ import { Loader2 } from "lucide-react";
 
 export default function Home() {
   const { activeTab, setGames, pendingListingId, setActiveTab, setMe } = useAppStore();
-  const { loading: sessionLoading } = useSession();
+  const { user: authUser, loading: authLoading } = useAuth();
   const [booting, setBooting] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -45,15 +45,19 @@ export default function Home() {
     })();
   }, [setGames]);
 
+  // Sync useAuth user → Zustand store (so existing components keep working)
+  useEffect(() => {
+    setMe(authUser);
+  }, [authUser, setMe]);
+
   // When pendingListingId is set, force-switch to a "payment" pseudo-tab
   useEffect(() => {
     if (pendingListingId && activeTab !== "home" && activeTab !== "games" && activeTab !== "orders" && activeTab !== "seller") {
-      // fallback
       setActiveTab("home");
     }
   }, [pendingListingId, activeTab, setActiveTab]);
 
-  if (booting || sessionLoading) {
+  if (booting || authLoading) {
     return (
       <div className="min-h-screen grid place-items-center bg-gradient-to-br from-fuchsia-50 via-white to-orange-50">
         <div className="flex flex-col items-center gap-3">

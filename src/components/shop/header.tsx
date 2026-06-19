@@ -6,11 +6,11 @@ import { Home, Gamepad2, ShoppingBag, Sparkles, Store, HeadphonesIcon, Shield, M
 import { cn } from "@/lib/utils";
 import { useEffect, useState } from "react";
 import { UserChip } from "./google-login";
-import { useSession } from "@/lib/session";
+import { useAuth } from "@/lib/auth";
 
 export function Header() {
   const { activeTab, setActiveTab, me, ordersVersion } = useAppStore();
-  const { loading } = useSession();
+  const { loading } = useAuth();
   const [orderCount, setOrderCount] = useState(0);
 
   useEffect(() => {

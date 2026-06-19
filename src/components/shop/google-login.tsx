@@ -1,7 +1,7 @@
 "use client";
 
 import { useAppStore } from "@/lib/store";
-import { useSession } from "@/lib/session";
+import { useAuth } from "@/lib/auth";
 import {
   Dialog,
   DialogContent,
@@ -18,8 +18,8 @@ import { useToast } from "@/hooks/use-toast";
 import { VisuallyHidden } from "@/components/ui/visually-hidden";
 
 export function GoogleLoginModal() {
-  const { loginOpen, setLoginOpen, setMe, setGames, setActiveTab } = useAppStore();
-  const { saveSession } = useSession();
+  const { loginOpen, setLoginOpen, setMe, setGames } = useAppStore();
+  const { signInWithGoogle } = useAuth();
   const { toast } = useToast();
 
   const [step, setStep] = useState<"choose" | "form" | "loading">("choose");
@@ -33,15 +33,17 @@ export function GoogleLoginModal() {
     setLoginOpen(false);
   }
 
-  // Simulate Google OAuth flow.
-  // In production, replace this with real NextAuth Google provider.
-  async function handleGoogleLogin() {
+  // Real Google OAuth via NextAuth — redirects to Google
+  function handleGoogleLogin() {
+    setStep("loading");
+    signInWithGoogle();
+  }
+
+  // Fallback: simulated login (only used if real OAuth is not configured)
+  async function handleSimulatedLogin() {
     setStep("loading");
     try {
-      // Simulate Google account picker - here we use form values
-      const googleSub = `google_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-      const avatar = "🎮";
-
+      const googleSub = `sim_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
       const r = await fetch("/api/auth/google", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -49,7 +51,7 @@ export function GoogleLoginModal() {
           email: email.trim(),
           name: name.trim(),
           googleSub,
-          avatar,
+          avatar: "🎮",
         }),
       });
       if (!r.ok) {
@@ -58,13 +60,14 @@ export function GoogleLoginModal() {
       }
       const d = await r.json();
       setMe(d.user);
-      saveSession(d.user.id);
+      if (typeof window !== "undefined") {
+        window.localStorage.setItem("rb_session_user_id", d.user.id);
+      }
       toast({
         title: `Bienvenue ${d.user.username} ! 👋`,
-        description: "Tu es connecté·e avec Google.",
+        description: "Tu es connecté·e (mode démo).",
       });
       reset();
-      // Refresh games (so seller features show)
       const gr = await fetch("/api/games");
       if (gr.ok) {
         const gd = await gr.json();
@@ -111,16 +114,24 @@ export function GoogleLoginModal() {
           {step === "choose" && (
             <div className="space-y-3">
               <p className="text-xs text-slate-500 text-center mb-3">
-                Choisis un compte Google pour continuer
+                Clique pour te connecter avec ton compte Google
               </p>
               <Button
-                onClick={() => setStep("form")}
+                onClick={handleGoogleLogin}
                 variant="outline"
                 className="w-full h-12 rounded-xl bg-white hover:bg-slate-50 border-slate-300 text-slate-700 font-medium justify-center gap-3"
               >
                 <GoogleLogo />
-                Utiliser un autre compte
+                Se connecter avec Google
               </Button>
+              <div className="text-center">
+                <button
+                  onClick={() => setStep("form")}
+                  className="text-[11px] text-slate-400 hover:text-slate-600 underline"
+                >
+                  Mode démo (sans OAuth)
+                </button>
+              </div>
               <p className="text-[11px] text-slate-400 text-center mt-2">
                 En continuant, tu acceptes les règles simples de RobloxBoutik :
                 sois sympa, paie avec Wave, et valide tes commandes.
@@ -130,6 +141,10 @@ export function GoogleLoginModal() {
 
           {step === "form" && (
             <div className="space-y-4">
+              <p className="text-[11px] text-amber-600 bg-amber-50 rounded-lg p-2">
+                ⚠️ Mode démo : pour tester sans configurer Google OAuth.
+                En production, utilise le vrai bouton Google.
+              </p>
               <div className="space-y-2">
                 <Label htmlFor="g-name" className="text-sm font-medium">
                   Ton nom
@@ -157,24 +172,26 @@ export function GoogleLoginModal() {
                 />
               </div>
               <Button
-                onClick={handleGoogleLogin}
+                onClick={handleSimulatedLogin}
                 disabled={!name.trim() || !email.includes("@")}
                 className="w-full h-12 rounded-xl bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 font-medium"
               >
                 <GoogleLogo />
                 Continuer
               </Button>
-              <p className="text-[11px] text-slate-400 text-center">
-                Simulation de Google OAuth — en production, ceci ouvre le vrai
-                écran Google.
-              </p>
+              <button
+                onClick={() => setStep("choose")}
+                className="text-[11px] text-slate-500 hover:text-slate-700 underline w-full text-center"
+              >
+                ← Retour
+              </button>
             </div>
           )}
 
           {step === "loading" && (
             <div className="py-10 flex flex-col items-center gap-3">
               <Loader2 className="size-10 animate-spin text-slate-400" />
-              <p className="text-sm text-slate-500">Connexion à Google…</p>
+              <p className="text-sm text-slate-500">Redirection vers Google…</p>
             </div>
           )}
         </div>
@@ -200,7 +217,7 @@ function GoogleLogo() {
       />
       <path
         fill="#EA4335"
-        d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84C6.71 7.31 9.14 5.38 12 5.38z"
+        d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
       />
     </svg>
   );
@@ -208,7 +225,7 @@ function GoogleLogo() {
 
 export function UserChip() {
   const { me, setLoginOpen, setActiveTab } = useAppStore();
-  const { clearSession } = useSession();
+  const { signOut } = useAuth();
   const { toast } = useToast();
 
   if (!me) {
@@ -251,8 +268,12 @@ export function UserChip() {
         variant="ghost"
         size="icon"
         className="size-9 rounded-full text-slate-400 hover:text-rose-500 hover:bg-rose-50"
-        onClick={() => {
-          clearSession();
+        onClick={async () => {
+          // Clear legacy localStorage session if present
+          if (typeof window !== "undefined") {
+            window.localStorage.removeItem("rb_session_user_id");
+          }
+          await signOut();
           toast({ title: "Déconnecté·e 👋" });
         }}
         title="Se déconnecter"
