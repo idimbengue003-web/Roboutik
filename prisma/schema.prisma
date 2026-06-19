@@ -1,0 +1,81 @@
+// Schema for Roblox kids marketplace with Wave payment
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  username  String   @unique
+  avatar    String?
+  isSeller  Boolean  @default(false)
+  balance   Int      @default(0) // accumulated validated funds (in FCFA)
+  createdAt DateTime @default(now())
+
+  listings     Listing[] @relation("SellerListings")
+  buyerOrders  Order[]   @relation("BuyerOrders")
+  sellerOrders Order[]   @relation("SellerOrders")
+  messages     Message[]
+}
+
+model Game {
+  id          String   @id @default(cuid())
+  name        String
+  slug        String   @unique
+  image       String
+  description String
+  isFavorite  Boolean  @default(false)
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+
+  listings Listing[]
+}
+
+model Listing {
+  id          String   @id @default(cuid())
+  sellerId    String
+  seller      User     @relation("SellerListings", fields: [sellerId], references: [id])
+  gameId      String
+  game        Game     @relation(fields: [gameId], references: [id])
+  title       String
+  description String
+  price       Int // in FCFA
+  image       String?
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  orders Order[]
+}
+
+model Order {
+  id        String   @id @default(cuid())
+  listingId String
+  listing   Listing  @relation(fields: [listingId], references: [id])
+  buyerId   String
+  buyer     User     @relation("BuyerOrders", fields: [buyerId], references: [id])
+  sellerId  String
+  seller    User     @relation("SellerOrders", fields: [sellerId], references: [id])
+  amount    Int // in FCFA
+  // PENDING_PAYMENT -> PAID -> DELIVERED -> VALIDATED  |  CANCELLED
+  status    String   @default("PENDING_PAYMENT")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  messages Message[]
+}
+
+model Message {
+  id        String   @id @default(cuid())
+  orderId   String
+  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  senderId  String
+  sender    User     @relation(fields: [senderId], references: [id])
+  content   String
+  isAuto    Boolean  @default(false) // seller auto-message simulation
+  createdAt DateTime @default(now())
+}
