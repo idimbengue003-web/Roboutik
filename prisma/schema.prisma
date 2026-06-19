@@ -59,7 +59,8 @@ model Listing {
   game        Game     @relation(fields: [gameId], references: [id])
   title       String
   description String
-  price       Int
+  price       Int // price displayed to buyer (includes 20% commission)
+  sellerNetPrice Int // amount the seller actually receives after commission
   image       String?
   active      Boolean  @default(true)
   createdAt   DateTime @default(now())
@@ -78,7 +79,8 @@ model Order {
   buyer          User      @relation("BuyerOrders", fields: [buyerId], references: [id])
   sellerId       String
   seller         User      @relation("SellerOrders", fields: [sellerId], references: [id])
-  amount         Int
+  amount         Int // total amount paid by buyer (incl. commission)
+  sellerNetAmount Int // net amount the seller receives (excl. commission), frozen at order time
   status         String    @default("PENDING_PAYMENT")
   paidAt         DateTime?
   deliveredAt    DateTime?
