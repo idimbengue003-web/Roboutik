@@ -132,9 +132,7 @@ export const authOptions: NextAuthOptions = {
       return session;
     },
   },
-  pages: {
-    signIn: "/api/auth/signin",
-  },
+  // Use NextAuth's default signin page (no custom page)
   debug: false,
 };
 
