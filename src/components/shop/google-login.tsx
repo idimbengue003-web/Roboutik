@@ -10,77 +10,26 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Loader2, LogOut } from "lucide-react";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { VisuallyHidden } from "@/components/ui/visually-hidden";
 
 export function GoogleLoginModal() {
-  const { loginOpen, setLoginOpen, setMe, setGames } = useAppStore();
+  const { loginOpen, setLoginOpen } = useAppStore();
   const { signInWithGoogle } = useAuth();
-  const { toast } = useToast();
 
-  const [step, setStep] = useState<"choose" | "form" | "loading">("choose");
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
+  const [loading, setLoading] = useState(false);
 
   function reset() {
-    setStep("choose");
-    setName("");
-    setEmail("");
+    setLoading(false);
     setLoginOpen(false);
   }
 
   // Real Google OAuth via NextAuth — redirects to Google
   function handleGoogleLogin() {
-    setStep("loading");
+    setLoading(true);
     signInWithGoogle();
-  }
-
-  // Fallback: simulated login (only used if real OAuth is not configured)
-  async function handleSimulatedLogin() {
-    setStep("loading");
-    try {
-      const googleSub = `sim_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-      const r = await fetch("/api/auth/google", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email: email.trim(),
-          name: name.trim(),
-          googleSub,
-          avatar: "🎮",
-        }),
-      });
-      if (!r.ok) {
-        const e = await r.json().catch(() => ({}));
-        throw new Error(e.error ?? "Échec de connexion");
-      }
-      const d = await r.json();
-      setMe(d.user);
-      if (typeof window !== "undefined") {
-        window.localStorage.setItem("rb_session_user_id", d.user.id);
-      }
-      toast({
-        title: `Bienvenue ${d.user.username} ! 👋`,
-        description: "Tu es connecté·e (mode démo).",
-      });
-      reset();
-      const gr = await fetch("/api/games");
-      if (gr.ok) {
-        const gd = await gr.json();
-        setGames(gd.games ?? []);
-      }
-    } catch (e) {
-      toast({
-        title: "Erreur de connexion",
-        description: e instanceof Error ? e.message : "Erreur",
-        variant: "destructive",
-      });
-      setStep("form");
-    }
   }
 
   return (
@@ -111,7 +60,12 @@ export function GoogleLoginModal() {
         </div>
 
         <div className="p-6 bg-slate-50">
-          {step === "choose" && (
+          {loading ? (
+            <div className="py-10 flex flex-col items-center gap-3">
+              <Loader2 className="size-10 animate-spin text-slate-400" />
+              <p className="text-sm text-slate-500">Redirection vers Google…</p>
+            </div>
+          ) : (
             <div className="space-y-3">
               <p className="text-xs text-slate-500 text-center mb-3">
                 Clique pour te connecter avec ton compte Google
@@ -124,74 +78,10 @@ export function GoogleLoginModal() {
                 <GoogleLogo />
                 Se connecter avec Google
               </Button>
-              <div className="text-center">
-                <button
-                  onClick={() => setStep("form")}
-                  className="text-[11px] text-slate-400 hover:text-slate-600 underline"
-                >
-                  Mode démo (sans OAuth)
-                </button>
-              </div>
               <p className="text-[11px] text-slate-400 text-center mt-2">
                 En continuant, tu acceptes les règles simples de RobloxBoutik :
                 sois sympa, paie avec Wave, et valide tes commandes.
               </p>
-            </div>
-          )}
-
-          {step === "form" && (
-            <div className="space-y-4">
-              <p className="text-[11px] text-amber-600 bg-amber-50 rounded-lg p-2">
-                ⚠️ Mode démo : pour tester sans configurer Google OAuth.
-                En production, utilise le vrai bouton Google.
-              </p>
-              <div className="space-y-2">
-                <Label htmlFor="g-name" className="text-sm font-medium">
-                  Ton nom
-                </Label>
-                <Input
-                  id="g-name"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="Ex : Awa Diop"
-                  className="h-11 rounded-xl"
-                  autoFocus
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="g-email" className="text-sm font-medium">
-                  Ton email Google
-                </Label>
-                <Input
-                  id="g-email"
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="awa@gmail.com"
-                  className="h-11 rounded-xl"
-                />
-              </div>
-              <Button
-                onClick={handleSimulatedLogin}
-                disabled={!name.trim() || !email.includes("@")}
-                className="w-full h-12 rounded-xl bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 font-medium"
-              >
-                <GoogleLogo />
-                Continuer
-              </Button>
-              <button
-                onClick={() => setStep("choose")}
-                className="text-[11px] text-slate-500 hover:text-slate-700 underline w-full text-center"
-              >
-                ← Retour
-              </button>
-            </div>
-          )}
-
-          {step === "loading" && (
-            <div className="py-10 flex flex-col items-center gap-3">
-              <Loader2 className="size-10 animate-spin text-slate-400" />
-              <p className="text-sm text-slate-500">Redirection vers Google…</p>
             </div>
           )}
         </div>
@@ -269,10 +159,6 @@ export function UserChip() {
         size="icon"
         className="size-9 rounded-full text-slate-400 hover:text-rose-500 hover:bg-rose-50"
         onClick={async () => {
-          // Clear legacy localStorage session if present
-          if (typeof window !== "undefined") {
-            window.localStorage.removeItem("rb_session_user_id");
-          }
           await signOut();
           toast({ title: "Déconnecté·e 👋" });
         }}
