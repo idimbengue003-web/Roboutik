@@ -25,19 +25,27 @@ Site d'achat Roblox simple pour enfants, avec paiement Wave, discussion vendeur,
 
 ```bash
 bun install
-bun run db:push
+bun run db:push   # Crée les tables dans ta base PostgreSQL
 bun run dev
 ```
 
 Ouvrir http://localhost:3000
 
+> Tu peux utiliser une base PostgreSQL Neon gratuite pour le dev local
+> (https://neon.tech), ou une base PostgreSQL locale.
+
 ## Déploiement Vercel
 
-1. Connecte ce repo GitHub à Vercel
-2. Variables d'environnement à configurer dans Vercel :
-   - `DATABASE_URL` — une URL PostgreSQL (Neon, Supabase, Vercel Postgres, etc.)
-3. Pour PostgreSQL, change `provider = "sqlite"` en `provider = "postgresql"` dans `prisma/schema.prisma`
-4. Vercel build automatiquement avec `bun run build`
+1. Connecte ce repo GitHub à Vercel : https://vercel.com/new
+2. Configure la variable d'environnement :
+   - `DATABASE_URL` — l'URL de connexion Neon
+     (format : `postgresql://user:password@host/dbname?sslmode=require`)
+3. Vercel build automatiquement avec `bun run build` (Prisma generate + Next build)
+4. La base Neon est créée automatiquement si tu passes par le marketplace Neon dans Vercel
+
+> ⚠️ Le schéma utilise PostgreSQL — il ne fonctionnera pas avec SQLite en prod.
+> Pour revenir à SQLite en local, change `provider = "postgresql"` en `"sqlite"`
+> dans `prisma/schema.prisma` (mais attention aux conflits).
 
 ## Notes
 
