@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { getActor, errorResponse, logAdminAction } from "@/lib/security";
+import { getActorById, errorResponse, logAdminAction } from "@/lib/security";
 
 // POST /api/admin/withdrawals/[id]/reject
 // body: { adminId, reason }
-// Refunds the seller and rejects the withdrawal
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -14,12 +13,7 @@ export async function POST(
     const body = await req.json().catch(() => ({}));
     const { adminId, reason } = body as { adminId?: string; reason?: string };
 
-    const reqWithHeader = new NextRequest(req, {
-      headers: new Headers(req.headers),
-    });
-    reqWithHeader.headers.set("x-user-id", adminId ?? "");
-
-    const { user: admin, error } = await getActor(reqWithHeader, {
+    const { user: admin, error } = await getActorById(adminId, {
       requireAdmin: true,
     });
     if (error) return errorResponse(error);
@@ -41,7 +35,6 @@ export async function POST(
       );
     }
 
-    // Refund seller and mark as rejected
     await db.$transaction([
       db.withdrawal.update({
         where: { id },

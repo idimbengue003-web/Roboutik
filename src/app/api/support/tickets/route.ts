@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { getActor, errorResponse } from "@/lib/security";
+import { getActorById, errorResponse } from "@/lib/security";
 import { classifyMessage } from "@/lib/support-bot";
 
 // GET /api/support/tickets?userId=...
-// Returns the user's tickets
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const userId = searchParams.get("userId");
@@ -12,11 +11,12 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "userId required" }, { status: 400 });
   }
 
+  const { user, error } = await getActorById(userId);
+  if (error) return errorResponse(error);
+
   const tickets = await db.supportTicket.findMany({
-    where: { openerId: userId },
-    include: {
-      messages: { orderBy: { createdAt: "asc" } },
-    },
+    where: { openerId: user!.id },
+    include: { messages: { orderBy: { createdAt: "asc" } } },
     orderBy: { updatedAt: "desc" },
   });
 
@@ -25,7 +25,6 @@ export async function GET(req: NextRequest) {
 
 // POST /api/support/tickets
 // body: { userId, subject, message, orderId? }
-// Creates a ticket + sends the user's first message + auto-generates bot reply
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
@@ -43,11 +42,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { user, error } = await getActor(
-      new NextRequest(req, {
-        headers: new Headers({ ...Object.fromEntries(req.headers), "x-user-id": userId }),
-      })
-    );
+    const { user, error } = await getActorById(userId);
     if (error) return errorResponse(error);
 
     // Classify the message
@@ -66,7 +61,6 @@ export async function POST(req: NextRequest) {
         },
       });
 
-      // User message
       await tx.ticketMessage.create({
         data: {
           ticketId: t.id,
@@ -77,7 +71,6 @@ export async function POST(req: NextRequest) {
         },
       });
 
-      // Bot auto-response
       await tx.ticketMessage.create({
         data: {
           ticketId: t.id,

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { getActor, errorResponse } from "@/lib/security";
+import { getActorById, errorResponse } from "@/lib/security";
 
 // POST /api/support/tickets/[id]/close
 // body: { userId }
@@ -17,11 +17,7 @@ export async function POST(
       return NextResponse.json({ error: "userId required" }, { status: 400 });
     }
 
-    const { user, error } = await getActor(
-      new NextRequest(req, {
-        headers: new Headers({ ...Object.fromEntries(req.headers), "x-user-id": userId }),
-      })
-    );
+    const { user, error } = await getActorById(userId);
     if (error) return errorResponse(error);
 
     const ticket = await db.supportTicket.findUnique({ where: { id } });

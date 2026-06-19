@@ -1,11 +1,16 @@
 // Shared security helpers used by all API routes
 
 import { db } from "@/lib/db";
-import type { NextRequest, NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
 
 /**
  * Get the acting user from the request, check ban status, optionally check admin.
  * Returns { user, error } where error is a NextResponse-ready JSON.
+ *
+ * The userId can be passed via:
+ *   - x-user-id header
+ *   - userId query param
+ *   - userId field in JSON body (only if body is JSON)
  */
 export async function getActor(
   req: NextRequest,
@@ -16,10 +21,28 @@ export async function getActor(
 }> {
   const { requireAdmin = false, requireSeller = false } = options;
 
-  const userId =
-    req.headers.get("x-user-id") ||
-    new URL(req.url).searchParams.get("userId") ||
-    (await req.json().catch(() => ({}))).userId;
+  // Try header first
+  let userId: string | null = req.headers.get("x-user-id");
+
+  // Try query param (userId or adminId as alias)
+  if (!userId) {
+    const sp = new URL(req.url).searchParams;
+    userId = sp.get("userId") || sp.get("adminId");
+  }
+
+  // Try JSON body (only if not GET/DELETE and content-type is JSON)
+  if (!userId && req.method !== "GET" && req.method !== "DELETE") {
+    const ct = req.headers.get("content-type") || "";
+    if (ct.includes("application/json")) {
+      try {
+        const body = await req.json();
+        if (typeof body?.userId === "string") userId = body.userId;
+        else if (typeof body?.adminId === "string") userId = body.adminId;
+      } catch {
+        /* not JSON or already parsed */
+      }
+    }
+  }
 
   if (!userId || typeof userId !== "string") {
     return {
@@ -68,8 +91,63 @@ export async function getActor(
 }
 
 /**
- * Build a JSON error response from an error object produced by getActor.
+ * Variant of getActor that takes a userId directly (already extracted from body).
+ * Useful for POST routes that need to parse the body themselves.
  */
+export async function getActorById(
+  userId: string | null | undefined,
+  options: { requireAdmin?: boolean; requireSeller?: boolean } = {}
+): Promise<{
+  user: Awaited<ReturnType<typeof db.user.findUnique>>;
+  error: null | { status: number; body: Record<string, unknown> };
+}> {
+  const { requireAdmin = false, requireSeller = false } = options;
+
+  if (!userId || typeof userId !== "string") {
+    return {
+      user: null,
+      error: { status: 401, body: { error: "Connecte-toi d'abord" } },
+    };
+  }
+
+  const user = await db.user.findUnique({ where: { id: userId } });
+
+  if (!user) {
+    return {
+      user: null,
+      error: { status: 401, body: { error: "Utilisateur introuvable" } },
+    };
+  }
+
+  if (user.isBanned) {
+    return {
+      user: null,
+      error: {
+        status: 403,
+        body: {
+          error: `Ton compte est banni${user.banReason ? ` : ${user.banReason}` : ""}. Contacte le support.`,
+          banned: true,
+        },
+      },
+    };
+  }
+
+  if (requireAdmin && !user.isAdmin) {
+    return {
+      user: null,
+      error: { status: 403, body: { error: "Accès réservé aux administrateurs" } },
+    };
+  }
+
+  if (requireSeller && !user.isSeller) {
+    return {
+      user: null,
+      error: { status: 403, body: { error: "Réservé aux vendeurs" } },
+    };
+  }
+
+  return { user, error: null };
+}
 export function errorResponse(error: {
   status: number;
   body: Record<string, unknown>;

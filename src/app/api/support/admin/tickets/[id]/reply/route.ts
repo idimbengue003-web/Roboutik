@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { getActor, errorResponse, logAdminAction } from "@/lib/security";
+import { getActorById, errorResponse, logAdminAction } from "@/lib/security";
 
 // POST /api/support/admin/tickets/[id]/reply
 // body: { adminId, content, resolve? }
-// Admin sends a message; optionally marks ticket as RESOLVED
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -25,12 +24,7 @@ export async function POST(
       );
     }
 
-    const reqWithHeader = new NextRequest(req, {
-      headers: new Headers(req.headers),
-    });
-    reqWithHeader.headers.set("x-user-id", adminId ?? "");
-
-    const { user: admin, error } = await getActor(reqWithHeader, {
+    const { user: admin, error } = await getActorById(adminId, {
       requireAdmin: true,
     });
     if (error) return errorResponse(error);

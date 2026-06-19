@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { getActor, errorResponse } from "@/lib/security";
+import { getActorById, errorResponse } from "@/lib/security";
 import { classifyMessage } from "@/lib/support-bot";
 
 // GET /api/support/tickets/[id]/messages?userId=...
@@ -15,6 +15,9 @@ export async function GET(
     return NextResponse.json({ error: "userId required" }, { status: 400 });
   }
 
+  const { user, error } = await getActorById(userId);
+  if (error) return errorResponse(error);
+
   const ticket = await db.supportTicket.findUnique({
     where: { id },
     include: { messages: { orderBy: { createdAt: "asc" } } },
@@ -25,11 +28,7 @@ export async function GET(
   }
 
   // Only the opener or an admin can read
-  const user = await db.user.findUnique({ where: { id: userId } });
-  if (!user) {
-    return NextResponse.json({ error: "Utilisateur introuvable" }, { status: 404 });
-  }
-  if (ticket.openerId !== userId && !user.isAdmin) {
+  if (ticket.openerId !== user!.id && !user!.isAdmin) {
     return NextResponse.json({ error: "Accès refusé" }, { status: 403 });
   }
 
@@ -38,7 +37,6 @@ export async function GET(
 
 // POST /api/support/tickets/[id]/messages
 // body: { userId, content }
-// User sends a new message on an existing ticket. Bot auto-responds if not escalated.
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -55,16 +53,10 @@ export async function POST(
       );
     }
 
-    const { user, error } = await getActor(
-      new NextRequest(req, {
-        headers: new Headers({ ...Object.fromEntries(req.headers), "x-user-id": userId }),
-      })
-    );
+    const { user, error } = await getActorById(userId);
     if (error) return errorResponse(error);
 
-    const ticket = await db.supportTicket.findUnique({
-      where: { id },
-    });
+    const ticket = await db.supportTicket.findUnique({ where: { id } });
     if (!ticket) {
       return NextResponse.json({ error: "Ticket introuvable" }, { status: 404 });
     }
@@ -75,7 +67,6 @@ export async function POST(
       return NextResponse.json({ error: "Ticket fermé" }, { status: 400 });
     }
 
-    // Save user message
     await db.ticketMessage.create({
       data: {
         ticketId: id,
@@ -86,7 +77,6 @@ export async function POST(
       },
     });
 
-    // Bot auto-response (if not already escalated to admin)
     let botResponse: string | null = null;
     if (ticket.status !== "ADMIN_HANDLED") {
       const bot = classifyMessage(content);
@@ -102,7 +92,6 @@ export async function POST(
         },
       });
 
-      // Escalate if needed
       if (bot.escalate) {
         await db.supportTicket.update({
           where: { id },
