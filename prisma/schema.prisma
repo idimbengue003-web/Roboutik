@@ -21,6 +21,10 @@ model User {
   avatar     String?
   googleSub  String?  @unique
   isSeller   Boolean  @default(false)
+  isAdmin    Boolean  @default(false)
+  isBanned   Boolean  @default(false)
+  bannedAt   DateTime?
+  banReason  String?
   balance    Int      @default(0)
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
@@ -32,6 +36,10 @@ model User {
   ratingsGiven   Rating[]      @relation("RatingFrom")
   ratingsReceived Rating[]     @relation("RatingTo")
   withdrawals    Withdrawal[]
+  ticketsOpened  SupportTicket[] @relation("TicketOpener")
+  ticketMessages TicketMessage[]
+  auditLogsActor AuditLog[]    @relation("AuditActor")
+  auditLogsTarget AuditLog[]   @relation("AuditTarget")
 
   @@schema("roboutik")
 }
@@ -134,6 +142,52 @@ model Withdrawal {
   status     String   @default("PENDING")
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
+
+  @@schema("roboutik")
+}
+
+model SupportTicket {
+  id          String   @id @default(cuid())
+  openerId    String
+  opener      User     @relation("TicketOpener", fields: [openerId], references: [id])
+  subject     String
+  category    String   @default("OTHER") // PAYMENT, DELIVERY, SELLER, BUG, ACCOUNT, OTHER
+  status      String   @default("OPEN") // OPEN, BOT_HANDLED, ADMIN_HANDLED, RESOLVED, CLOSED
+  priority    String   @default("NORMAL") // LOW, NORMAL, HIGH, URGENT
+  // Snapshot of the orderId if the ticket is about a specific order
+  orderId     String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  messages    TicketMessage[]
+
+  @@schema("roboutik")
+}
+
+model TicketMessage {
+  id         String   @id @default(cuid())
+  ticketId   String
+  ticket     SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  senderId   String?
+  sender     User?    @relation(fields: [senderId], references: [id])
+  // senderRole: USER (ticket opener), BOT (auto-response), ADMIN (human support)
+  senderRole String   @default("USER")
+  content    String
+  isAuto     Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  @@schema("roboutik")
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  actorId    String?
+  actor      User?    @relation("AuditActor", fields: [actorId], references: [id])
+  targetId   String?
+  target     User?    @relation("AuditTarget", fields: [targetId], references: [id])
+  action     String   // BAN_USER, UNBAN_USER, VALIDATE_WITHDRAWAL, REJECT_WITHDRAWAL, DELETE_LISTING, etc.
+  metadata   String?  // JSON string with extra context
+  createdAt  DateTime @default(now())
 
   @@schema("roboutik")
 }

@@ -1,0 +1,112 @@
+import { NextRequest, NextResponse } from "next/server";
+import { db } from "@/lib/db";
+import { getActor, errorResponse } from "@/lib/security";
+import { classifyMessage } from "@/lib/support-bot";
+
+// GET /api/support/tickets?userId=...
+// Returns the user's tickets
+export async function GET(req: NextRequest) {
+  const { searchParams } = new URL(req.url);
+  const userId = searchParams.get("userId");
+  if (!userId) {
+    return NextResponse.json({ error: "userId required" }, { status: 400 });
+  }
+
+  const tickets = await db.supportTicket.findMany({
+    where: { openerId: userId },
+    include: {
+      messages: { orderBy: { createdAt: "asc" } },
+    },
+    orderBy: { updatedAt: "desc" },
+  });
+
+  return NextResponse.json({ tickets });
+}
+
+// POST /api/support/tickets
+// body: { userId, subject, message, orderId? }
+// Creates a ticket + sends the user's first message + auto-generates bot reply
+export async function POST(req: NextRequest) {
+  try {
+    const body = await req.json();
+    const { userId, subject, message, orderId } = body as {
+      userId?: string;
+      subject?: string;
+      message?: string;
+      orderId?: string;
+    };
+
+    if (!userId || !subject?.trim() || !message?.trim()) {
+      return NextResponse.json(
+        { error: "userId, subject et message requis" },
+        { status: 400 }
+      );
+    }
+
+    const { user, error } = await getActor(
+      new NextRequest(req, {
+        headers: new Headers({ ...Object.fromEntries(req.headers), "x-user-id": userId }),
+      })
+    );
+    if (error) return errorResponse(error);
+
+    // Classify the message
+    const bot = classifyMessage(message);
+
+    // Create ticket + first user message + bot auto-response in a transaction
+    const ticket = await db.$transaction(async (tx) => {
+      const t = await tx.supportTicket.create({
+        data: {
+          openerId: user!.id,
+          subject: subject.trim().slice(0, 200),
+          category: bot.category,
+          priority: bot.priority,
+          orderId: orderId || null,
+          status: bot.escalate ? "ADMIN_HANDLED" : "BOT_HANDLED",
+        },
+      });
+
+      // User message
+      await tx.ticketMessage.create({
+        data: {
+          ticketId: t.id,
+          senderId: user!.id,
+          senderRole: "USER",
+          content: message.trim(),
+          isAuto: false,
+        },
+      });
+
+      // Bot auto-response
+      await tx.ticketMessage.create({
+        data: {
+          ticketId: t.id,
+          senderId: null,
+          senderRole: "BOT",
+          content: bot.response,
+          isAuto: true,
+        },
+      });
+
+      return t;
+    });
+
+    const fullTicket = await db.supportTicket.findUnique({
+      where: { id: ticket.id },
+      include: { messages: { orderBy: { createdAt: "asc" } } },
+    });
+
+    return NextResponse.json({
+      ticket: fullTicket,
+      botResponse: bot.response,
+      escalate: bot.escalate,
+      suggestedActions: bot.suggestedActions,
+    });
+  } catch (e) {
+    console.error("Create ticket error:", e);
+    return NextResponse.json(
+      { error: e instanceof Error ? e.message : "Erreur" },
+      { status: 500 }
+    );
+  }
+}

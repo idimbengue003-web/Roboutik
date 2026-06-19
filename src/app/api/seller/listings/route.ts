@@ -37,9 +37,34 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // ANTI-FRAUD: validate sellerNetPrice type and bounds
+    if (
+      typeof sellerNetPrice !== "number" ||
+      !Number.isFinite(sellerNetPrice) ||
+      !Number.isInteger(sellerNetPrice)
+    ) {
+      return NextResponse.json(
+        { error: "Prix invalide" },
+        { status: 400 }
+      );
+    }
     if (sellerNetPrice < 100 || sellerNetPrice > 1_000_000) {
       return NextResponse.json(
         { error: "Prix net entre 100 et 1 000 000 FCFA" },
+        { status: 400 }
+      );
+    }
+
+    // ANTI-FRAUD: validate title/description length
+    if (title.trim().length < 5 || title.trim().length > 80) {
+      return NextResponse.json(
+        { error: "Titre entre 5 et 80 caractères" },
+        { status: 400 }
+      );
+    }
+    if (description.trim().length < 10 || description.trim().length > 500) {
+      return NextResponse.json(
+        { error: "Description entre 10 et 500 caractères" },
         { status: 400 }
       );
     }
@@ -48,10 +73,30 @@ export async function POST(req: NextRequest) {
     if (!user) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
+
+    // ANTI-FRAUD: banned users cannot create listings
+    if (user.isBanned) {
+      return NextResponse.json(
+        { error: `Ton compte est banni. Contacte le support.`, banned: true },
+        { status: 403 }
+      );
+    }
+
     if (!user.isSeller) {
       return NextResponse.json(
         { error: "Deviens vendeur d'abord" },
         { status: 400 }
+      );
+    }
+
+    // ANTI-FRAUD: limit listings per seller (prevent spam)
+    const listingCount = await db.listing.count({
+      where: { sellerId: userId },
+    });
+    if (listingCount >= 50) {
+      return NextResponse.json(
+        { error: "Tu as atteint la limite de 50 annonces. Supprime-en pour en créer de nouvelles." },
+        { status: 429 }
       );
     }
 

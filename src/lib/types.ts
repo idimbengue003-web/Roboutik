@@ -18,9 +18,49 @@ export type User = {
   avatar: string | null;
   googleSub: string | null;
   isSeller: boolean;
+  isAdmin: boolean;
+  isBanned: boolean;
+  bannedAt: string | null;
+  banReason: string | null;
   balance: number;
   createdAt: string;
   updatedAt: string;
+};
+
+export type SupportTicket = {
+  id: string;
+  openerId: string;
+  subject: string;
+  category: "PAYMENT" | "DELIVERY" | "SELLER" | "BUG" | "ACCOUNT" | "OTHER";
+  status: "OPEN" | "BOT_HANDLED" | "ADMIN_HANDLED" | "RESOLVED" | "CLOSED";
+  priority: "LOW" | "NORMAL" | "HIGH" | "URGENT";
+  orderId: string | null;
+  createdAt: string;
+  updatedAt: string;
+  opener?: User;
+  messages?: TicketMessage[];
+};
+
+export type TicketMessage = {
+  id: string;
+  ticketId: string;
+  senderId: string | null;
+  senderRole: "USER" | "BOT" | "ADMIN";
+  content: string;
+  isAuto: boolean;
+  createdAt: string;
+  sender?: User | null;
+};
+
+export type AuditLog = {
+  id: string;
+  actorId: string | null;
+  targetId: string | null;
+  action: string;
+  metadata: string | null;
+  createdAt: string;
+  actor?: User | null;
+  target?: User | null;
 };
 
 export type Rating = {

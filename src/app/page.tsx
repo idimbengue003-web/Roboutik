@@ -13,6 +13,9 @@ import { PaymentView } from "@/components/shop/payment-view";
 import { ChatDrawer } from "@/components/shop/chat-drawer";
 import { GoogleLoginModal } from "@/components/shop/google-login";
 import { RatingModal } from "@/components/shop/rating-modal";
+import { SupportView } from "@/components/shop/support-view";
+import { SupportDrawer } from "@/components/shop/support-drawer";
+import { AdminView } from "@/components/shop/admin-view";
 import { Loader2 } from "lucide-react";
 
 export default function Home() {
@@ -85,6 +88,8 @@ export default function Home() {
             {activeTab === "games" && <GamesView />}
             {activeTab === "orders" && <OrdersView />}
             {activeTab === "seller" && <SellerView />}
+            {activeTab === "support" && <SupportView />}
+            {activeTab === "admin" && <AdminView />}
           </>
         )}
       </main>
@@ -94,6 +99,7 @@ export default function Home() {
       <GoogleLoginModal />
       <ChatDrawer />
       <RatingModal />
+      <SupportDrawer />
     </div>
   );
 }

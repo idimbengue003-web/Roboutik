@@ -83,29 +83,83 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "listingId and buyerId required" }, { status: 400 });
     }
 
-    const listing = await db.listing.findUnique({
-      where: { id: listingId },
-      include: { game: true },
-    });
-    if (!listing) {
-      return NextResponse.json({ error: "Listing not found" }, { status: 404 });
-    }
-
     const buyer = await db.user.findUnique({ where: { id: buyerId } });
     if (!buyer) {
       return NextResponse.json({ error: "Connecte-toi avec Google d'abord" }, { status: 400 });
     }
 
-    if (listing.sellerId === buyer.id) {
-      return NextResponse.json({ error: "Tu ne peux pas acheter ton propre annonce" }, { status: 400 });
+    // ANTI-FRAUD: banned users cannot buy
+    if (buyer.isBanned) {
+      return NextResponse.json(
+        {
+          error: `Ton compte est banni${buyer.banReason ? ` : ${buyer.banReason}` : ""}. Contacte le support.`,
+          banned: true,
+        },
+        { status: 403 }
+      );
     }
 
+    const listing = await db.listing.findUnique({
+      where: { id: listingId },
+      include: { game: true, seller: true },
+    });
+    if (!listing) {
+      return NextResponse.json({ error: "Listing not found" }, { status: 404 });
+    }
+
+    // ANTI-FRAUD: cannot buy inactive listing
+    if (!listing.active) {
+      return NextResponse.json(
+        { error: "Cette annonce n'est plus disponible" },
+        { status: 400 }
+      );
+    }
+
+    // ANTI-FRAUD: cannot buy own listing
+    if (listing.sellerId === buyer.id) {
+      return NextResponse.json(
+        { error: "Tu ne peux pas acheter ton propre annonce" },
+        { status: 400 }
+      );
+    }
+
+    // ANTI-FRAUD: cannot buy from a banned seller
+    if (listing.seller?.isBanned) {
+      return NextResponse.json(
+        { error: "Ce vendeur n'est plus disponible" },
+        { status: 400 }
+      );
+    }
+
+    // ANTI-FRAUD: price sanity check
+    if (listing.price < 100 || listing.price > 1_000_000) {
+      return NextResponse.json(
+        { error: "Prix invalide sur cette annonce" },
+        { status: 400 }
+      );
+    }
+
+    // ANTI-FRAUD: prevent multiple pending orders for the same listing by the same buyer
     const existing = await db.order.findFirst({
       where: { listingId, buyerId: buyer.id, status: "PENDING_PAYMENT" },
     });
 
     if (existing) {
       return NextResponse.json({ order: existing, alreadyExists: true });
+    }
+
+    // ANTI-FRAUD: limit to 5 active orders per buyer (prevent spam)
+    const activeOrdersCount = await db.order.count({
+      where: {
+        buyerId: buyer.id,
+        status: { in: ["PENDING_PAYMENT", "PAID", "DELIVERED"] },
+      },
+    });
+    if (activeOrdersCount >= 10) {
+      return NextResponse.json(
+        { error: "Trop de commandes en cours. Termine-en quelques-unes d'abord." },
+        { status: 429 }
+      );
     }
 
     const order = await db.order.create({

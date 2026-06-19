@@ -3,7 +3,7 @@
 import { create } from "zustand";
 import type { Game, User } from "@/lib/types";
 
-type Tab = "home" | "games" | "orders" | "seller";
+type Tab = "home" | "games" | "orders" | "seller" | "admin" | "support";
 
 type AppState = {
   // navigation
@@ -36,6 +36,10 @@ type AppState = {
   rateOrderId: string | null;
   setRateOrderId: (id: string | null) => void;
 
+  // support: ticket currently open in support drawer
+  activeTicketId: string | null;
+  setActiveTicketId: (id: string | null) => void;
+
   // orders refresh trigger
   ordersVersion: number;
   bumpOrders: () => void;
@@ -64,6 +68,9 @@ export const useAppStore = create<AppState>((set) => ({
 
   rateOrderId: null,
   setRateOrderId: (id) => set({ rateOrderId: id }),
+
+  activeTicketId: null,
+  setActiveTicketId: (id) => set({ activeTicketId: id }),
 
   ordersVersion: 0,
   bumpOrders: () => set((s) => ({ ordersVersion: s.ordersVersion + 1 })),

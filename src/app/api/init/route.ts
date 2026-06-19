@@ -17,6 +17,20 @@ export async function GET() {
       },
     });
 
+    // Admin demo account
+    const admin = await db.user.upsert({
+      where: { email: "admin@roboutik.sn" },
+      update: { isAdmin: true },
+      create: {
+        email: "admin@roboutik.sn",
+        username: "Admin",
+        avatar: "🛡️",
+        isSeller: false,
+        isAdmin: true,
+        balance: 0,
+      },
+    });
+
     const sellers = [
       { username: "Vendeur ProMax", email: "vendeur1@demo.local", avatar: "🎮", balance: 12500 },
       { username: "Roblox King", email: "vendeur2@demo.local", avatar: "👑", balance: 8500 },

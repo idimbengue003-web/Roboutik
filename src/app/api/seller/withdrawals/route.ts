@@ -18,9 +18,34 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // ANTI-FRAUD: validate amount type
+    if (
+      typeof amount !== "number" ||
+      !Number.isFinite(amount) ||
+      !Number.isInteger(amount)
+    ) {
+      return NextResponse.json({ error: "Montant invalide" }, { status: 400 });
+    }
+
     if (amount < 500) {
       return NextResponse.json(
         { error: "Retrait minimum : 500 FCFA" },
+        { status: 400 }
+      );
+    }
+
+    if (amount > 5_000_000) {
+      return NextResponse.json(
+        { error: "Retrait maximum : 5 000 000 FCFA. Contacte le support." },
+        { status: 400 }
+      );
+    }
+
+    // ANTI-FRAUD: validate Wave number format (Senegal: 7X XXX XX XX = 9 digits starting with 7)
+    const cleanedNumber = waveNumber.replace(/\s+/g, "");
+    if (!/^7\d{8}$/.test(cleanedNumber)) {
+      return NextResponse.json(
+        { error: "Numéro Wave invalide. Format attendu : 76 123 45 67" },
         { status: 400 }
       );
     }
@@ -30,10 +55,29 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
+    // ANTI-FRAUD: banned users cannot withdraw
+    if (user.isBanned) {
+      return NextResponse.json(
+        { error: "Ton compte est banni. Contacte le support.", banned: true },
+        { status: 403 }
+      );
+    }
+
     if (amount > user.balance) {
       return NextResponse.json(
         { error: `Solde insuffisant. Disponible : ${user.balance} FCFA` },
         { status: 400 }
+      );
+    }
+
+    // ANTI-FRAUD: limit to 1 pending withdrawal at a time
+    const pendingCount = await db.withdrawal.count({
+      where: { sellerId: userId, status: "PENDING" },
+    });
+    if (pendingCount >= 3) {
+      return NextResponse.json(
+        { error: "Tu as déjà 3 retraits en attente. Patiente qu'ils soient traités." },
+        { status: 429 }
       );
     }
 
@@ -43,7 +87,7 @@ export async function POST(req: NextRequest) {
         data: {
           sellerId: userId,
           amount,
-          waveNumber,
+          waveNumber: cleanedNumber,
           status: "PENDING",
         },
       }),

@@ -2,7 +2,7 @@
 
 import { useAppStore } from "@/lib/store";
 import { Button } from "@/components/ui/button";
-import { Home, Gamepad2, ShoppingBag, Sparkles, Store } from "lucide-react";
+import { Home, Gamepad2, ShoppingBag, Sparkles, Store, HeadphonesIcon, Shield } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useEffect, useState } from "react";
 import { UserChip } from "./google-login";
@@ -38,15 +38,18 @@ export function Header() {
     };
   }, [me, ordersVersion]);
 
-  const tabs: { id: typeof activeTab; label: string; icon: typeof Home; needsAuth?: boolean }[] = [
+  const tabs: { id: typeof activeTab; label: string; icon: typeof Home; needsAuth?: boolean; needsAdmin?: boolean }[] = [
     { id: "home", label: "Accueil", icon: Home },
     { id: "games", label: "Jeux Roblox", icon: Gamepad2 },
-    { id: "orders", label: "Mes Commandes", icon: ShoppingBag, needsAuth: true },
+    { id: "orders", label: "Commandes", icon: ShoppingBag, needsAuth: true },
     { id: "seller", label: "Vendeur", icon: Store, needsAuth: true },
+    { id: "support", label: "Support", icon: HeadphonesIcon },
+    { id: "admin", label: "Admin", icon: Shield, needsAdmin: true },
   ];
 
-  const visibleTabs = tabs.filter((t) => !t.needsAuth || me);
-  // Show 0 if not logged in
+  const visibleTabs = tabs.filter(
+    (t) => (!t.needsAuth || me) && (!t.needsAdmin || me?.isAdmin)
+  );
   const displayCount = me ? orderCount : 0;
 
   return (
@@ -66,7 +69,7 @@ export function Header() {
         </button>
 
         {/* Tabs */}
-        <nav className="flex items-center gap-1 sm:gap-2">
+        <nav className="flex items-center gap-1 sm:gap-2 overflow-x-auto">
           {visibleTabs.map((t) => {
             const Icon = t.icon;
             const active = activeTab === t.id;
@@ -77,9 +80,13 @@ export function Header() {
                 size="sm"
                 onClick={() => setActiveTab(t.id)}
                 className={cn(
-                  "relative h-10 rounded-full px-2.5 sm:px-4 text-sm font-semibold transition-all",
+                  "relative h-10 rounded-full px-2.5 sm:px-4 text-sm font-semibold transition-all shrink-0",
                   active
-                    ? "bg-gradient-to-r from-fuchsia-600 to-orange-500 text-white shadow-md"
+                    ? t.id === "admin"
+                      ? "bg-gradient-to-r from-rose-600 to-orange-500 text-white shadow-md"
+                      : t.id === "support"
+                      ? "bg-gradient-to-r from-sky-500 to-cyan-500 text-white shadow-md"
+                      : "bg-gradient-to-r from-fuchsia-600 to-orange-500 text-white shadow-md"
                     : "text-slate-700 hover:bg-slate-100"
                 )}
               >
