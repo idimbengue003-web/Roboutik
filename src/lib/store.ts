@@ -48,6 +48,10 @@ type AppState = {
   reportOrderId: string | null;
   setReportOrderId: (id: string | null) => void;
 
+  // profile modal
+  profileOpen: boolean;
+  setProfileOpen: (b: boolean) => void;
+
   // orders refresh trigger
   ordersVersion: number;
   bumpOrders: () => void;
@@ -85,6 +89,9 @@ export const useAppStore = create<AppState>((set) => ({
 
   reportOrderId: null,
   setReportOrderId: (id) => set({ reportOrderId: id }),
+
+  profileOpen: false,
+  setProfileOpen: (b) => set({ profileOpen: b }),
 
   ordersVersion: 0,
   bumpOrders: () => set((s) => ({ ordersVersion: s.ordersVersion + 1 })),

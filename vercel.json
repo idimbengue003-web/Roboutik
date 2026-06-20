@@ -4,6 +4,12 @@
   "buildCommand": "bun run build",
   "installCommand": "bun install",
   "devCommand": "bun run dev",
+  "crons": [
+    {
+      "path": "/api/cron/auto-validate",
+      "schedule": "0 * * * *"
+    }
+  ],
   "git": {
     "deploymentEnabled": true
   }

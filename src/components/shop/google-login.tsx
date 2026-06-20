@@ -114,7 +114,7 @@ function GoogleLogo() {
 }
 
 export function UserChip() {
-  const { me, setLoginOpen, setActiveTab } = useAppStore();
+  const { me, setLoginOpen, setActiveTab, setProfileOpen } = useAppStore();
   const { signOut } = useAuth();
   const { toast } = useToast();
 
@@ -134,9 +134,9 @@ export function UserChip() {
   return (
     <div className="flex items-center gap-2">
       <button
-        onClick={() => setActiveTab("seller")}
+        onClick={() => setProfileOpen(true)}
         className="flex items-center gap-2 rounded-full bg-slate-100 hover:bg-slate-200 pl-1 pr-3 py-1 transition-colors"
-        title="Mon espace vendeur"
+        title="Mon profil"
       >
         <div className="grid size-8 place-items-center rounded-full bg-gradient-to-br from-fuchsia-500 to-orange-400 text-white text-sm font-bold">
           {me.avatar ?? "🎮"}

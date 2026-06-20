@@ -19,6 +19,7 @@ import { AdminView } from "@/components/shop/admin-view";
 import { MessagesView } from "@/components/shop/messages-view";
 import { ConversationsDrawer } from "@/components/shop/conversations-drawer";
 import { ReportSellerDialog } from "@/components/shop/report-seller-dialog";
+import { ProfileModal } from "@/components/shop/profile-modal";
 import { Loader2 } from "lucide-react";
 
 export default function Home() {
@@ -110,6 +111,7 @@ export default function Home() {
       <SupportDrawer />
       <ConversationsDrawer />
       <ReportSellerDialog />
+      <ProfileModal />
     </div>
   );
 }
