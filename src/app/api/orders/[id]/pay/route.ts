@@ -21,22 +21,31 @@ export async function POST(
 ) {
   try {
     const { id } = await params;
+    console.log("[pay] start, orderId:", id);
     const body = await req.json().catch(() => null);
+    console.log("[pay] body:", JSON.stringify(body));
     const [data, error] = parseBody(payOrderSchema, body);
-    if (error) return errorResponse(error);
+    if (error) {
+      console.log("[pay] validation error:", JSON.stringify(error));
+      return errorResponse(error);
+    }
     const { userId, wavePhone } = data!;
     const sanitizedWavePhone = wavePhone ? sanitizePhone(wavePhone) : "";
+    console.log("[pay] userId:", userId, "phone:", sanitizedWavePhone);
 
     const buyer = await db.user.findUnique({ where: { id: userId } });
     if (!buyer) {
+      console.log("[pay] buyer not found");
       return NextResponse.json({ error: "Connecte-toi avec Google d'abord" }, { status: 401 });
     }
     if (buyer.isBanned) {
+      console.log("[pay] buyer banned");
       return NextResponse.json(
         { error: `Ton compte est banni. Contacte le support.`, banned: true },
         { status: 403 }
       );
     }
+    console.log("[pay] buyer OK:", buyer.username);
 
     const order = await db.order.findUnique({
       where: { id },
@@ -44,33 +53,33 @@ export async function POST(
     });
 
     if (!order) {
+      console.log("[pay] order not found");
       return NextResponse.json({ error: "Commande introuvable" }, { status: 404 });
     }
     if (order.buyerId !== buyer.id) {
+      console.log("[pay] not buyer's order");
       return NextResponse.json({ error: "Ce n'est pas ta commande" }, { status: 403 });
     }
     if (order.status !== "PENDING_PAYMENT") {
+      console.log("[pay] order status:", order.status);
       return NextResponse.json({ error: "Commande déjà payée ou annulée" }, { status: 400 });
     }
+    console.log("[pay] order OK, amount:", order.amount);
 
     // Mark order as "PAYMENT_INITIATED" + store wavePhone + record start time
-    // so the poll endpoint can match the Wave transaction by amount + time.
     const now = new Date();
     const autoValidateAt = new Date(now.getTime() + 24 * 60 * 60 * 1000);
 
     await db.order.update({
       where: { id },
       data: {
-        // We keep status as PENDING_PAYMENT until the scraper confirms,
-        // but store the payment-initiated timestamp for matching.
-        // Reuse paidAt only when actually confirmed.
         autoValidateAt,
       },
     });
+    console.log("[pay] order updated with autoValidateAt");
 
-    // Save the buyer's Wave phone as a message if provided (so seller can reach them)
+    // Save the buyer's Wave phone as a message if provided
     if (sanitizedWavePhone) {
-      // Only save if not already present
       const existing = await db.message.findFirst({
         where: {
           orderId: order.id,
@@ -86,22 +95,34 @@ export async function POST(
             isAuto: false,
           },
         });
+        console.log("[pay] phone message saved");
       }
     }
 
     // Build the Wave checkout URL with the order amount
-    const checkoutUrl = buildWaveCheckoutUrl(order.amount);
+    let checkoutUrl: string;
+    try {
+      checkoutUrl = buildWaveCheckoutUrl(order.amount);
+      console.log("[pay] checkoutUrl:", checkoutUrl);
+    } catch (urlErr) {
+      console.error("[pay] buildWaveCheckoutUrl failed:", urlErr);
+      return NextResponse.json(
+        { error: "Erreur construction URL Wave", detail: urlErr instanceof Error ? urlErr.message : "?" },
+        { status: 500 }
+      );
+    }
 
+    console.log("[pay] success, returning checkoutUrl");
     return NextResponse.json({
       checkoutUrl,
       amount: order.amount,
       orderId: order.id,
-      pollIntervalMs: 3000, // frontend polls /api/orders/[id]/poll every 3s
+      pollIntervalMs: 3000,
     });
   } catch (e) {
-    console.error("Pay (Wave redirect) error:", e);
+    console.error("[pay] FATAL error:", e);
     return NextResponse.json(
-      { error: e instanceof Error ? e.message : "Erreur" },
+      { error: e instanceof Error ? e.message : "Erreur", stack: e instanceof Error ? e.stack?.slice(0, 500) : undefined },
       { status: 500 }
     );
   }
