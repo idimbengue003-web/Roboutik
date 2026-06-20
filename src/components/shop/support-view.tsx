@@ -25,17 +25,42 @@ import {
   CheckCircle2,
   User as UserIcon,
   Shield,
+  Flag,
 } from "lucide-react";
 import { useEffect, useState, useCallback, useRef } from "react";
 import type { SupportTicket, TicketMessage } from "@/lib/types";
 import { CATEGORY_LABEL, CATEGORY_ICON } from "@/lib/support-bot";
 import { useToast } from "@/hooks/use-toast";
 
+type MyReport = SupportTicket & {
+  order?: {
+    id: string;
+    status: string;
+    amount: number;
+    listing: {
+      id: string;
+      title: string;
+      gameId: string;
+      game?: { id: string; name: string } | null;
+    } | null;
+  } | null;
+};
+
+const PRIORITY_BADGE: Record<string, { label: string; cls: string }> = {
+  URGENT: { label: "URGENT", cls: "bg-rose-100 text-rose-700" },
+  HIGH: { label: "HAUTE", cls: "bg-amber-100 text-amber-700" },
+  NORMAL: { label: "NORMALE", cls: "bg-sky-100 text-sky-700" },
+  LOW: { label: "BASSE", cls: "bg-slate-100 text-slate-600" },
+};
+
 export function SupportView() {
   const { me, setLoginOpen, activeTicketId, setActiveTicketId } = useAppStore();
   const [tickets, setTickets] = useState<SupportTicket[]>([]);
+  const [reports, setReports] = useState<MyReport[]>([]);
   const [loading, setLoading] = useState(true);
+  const [reportsLoading, setReportsLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
+  const [tab, setTab] = useState<"reports" | "tickets">("reports");
 
   const load = useCallback(async () => {
     if (!me) {
@@ -53,9 +78,26 @@ export function SupportView() {
     }
   }, [me]);
 
+  const loadReports = useCallback(async () => {
+    if (!me) {
+      setReports([]);
+      setReportsLoading(false);
+      return;
+    }
+    try {
+      const r = await fetch(`/api/support/my-reports?userId=${me.id}`);
+      if (!r.ok) return;
+      const d = await r.json();
+      setReports(d.tickets ?? []);
+    } finally {
+      setReportsLoading(false);
+    }
+  }, [me]);
+
   useEffect(() => {
     load();
-  }, [load]);
+    loadReports();
+  }, [load, loadReports]);
 
   if (!me) {
     return (
@@ -102,46 +144,98 @@ export function SupportView() {
         </Button>
       </div>
 
-      {/* Bot banner */}
-      <div className="rounded-2xl bg-gradient-to-r from-sky-50 to-cyan-50 border border-sky-200 p-4 flex items-center gap-3">
-        <div className="grid size-12 place-items-center rounded-2xl bg-white shadow-sm">
-          <Bot className="size-6 text-sky-600" />
-        </div>
-        <div className="flex-1">
-          <p className="font-bold text-slate-900">RoboutikBot</p>
-          <p className="text-sm text-slate-600">
-            Répond en quelques secondes. Pour les arnaques ou problèmes graves,
-            un admin intervient en priorité.
-          </p>
-        </div>
+      {/* Sub-tabs: Mes signalements | Tous mes tickets */}
+      <div className="flex items-center gap-1 overflow-x-auto pb-1">
+        <Button
+          size="sm"
+          variant={tab === "reports" ? "default" : "outline"}
+          onClick={() => setTab("reports")}
+          className={`h-9 rounded-full px-4 text-sm font-semibold shrink-0 ${
+            tab === "reports"
+              ? "bg-gradient-to-r from-rose-600 to-orange-500 text-white"
+              : ""
+          }`}
+        >
+          <Flag className="size-4" />
+          Mes signalements
+          {reports.length > 0 && (
+            <span className="ml-1 rounded-full bg-white/30 px-1.5 text-[10px] font-bold">
+              {reports.length}
+            </span>
+          )}
+        </Button>
+        <Button
+          size="sm"
+          variant={tab === "tickets" ? "default" : "outline"}
+          onClick={() => setTab("tickets")}
+          className={`h-9 rounded-full px-4 text-sm font-semibold shrink-0 ${
+            tab === "tickets"
+              ? "bg-gradient-to-r from-sky-500 to-cyan-500 text-white"
+              : ""
+          }`}
+        >
+          <MessageSquare className="size-4" />
+          Tous mes tickets
+          {tickets.length > 0 && (
+            <span className="ml-1 rounded-full bg-white/30 px-1.5 text-[10px] font-bold">
+              {tickets.length}
+            </span>
+          )}
+        </Button>
       </div>
 
-      {/* Tickets list */}
-      {loading ? (
-        <div className="text-center text-slate-500 py-8">Chargement…</div>
-      ) : tickets.length === 0 ? (
-        <div className="rounded-2xl border bg-white p-8 text-center text-slate-500">
-          <MessageSquare className="size-10 mx-auto mb-3 text-slate-300" />
-          Aucun ticket pour le moment.
-          <br />
-          <Button
-            variant="ghost"
-            onClick={() => setShowCreate(true)}
-            className="mt-2 text-sky-600 font-semibold"
-          >
-            Ouvrir mon premier ticket →
-          </Button>
+      {/* Bot banner (only on "tickets" tab) */}
+      {tab === "tickets" && (
+        <div className="rounded-2xl bg-gradient-to-r from-sky-50 to-cyan-50 border border-sky-200 p-4 flex items-center gap-3">
+          <div className="grid size-12 place-items-center rounded-2xl bg-white shadow-sm">
+            <Bot className="size-6 text-sky-600" />
+          </div>
+          <div className="flex-1">
+            <p className="font-bold text-slate-900">RoboutikBot</p>
+            <p className="text-sm text-slate-600">
+              Répond en quelques secondes. Pour les arnaques ou problèmes graves,
+              un admin intervient en priorité.
+            </p>
+          </div>
         </div>
+      )}
+
+      {tab === "reports" ? (
+        <MyReportsList
+          reports={reports}
+          loading={reportsLoading}
+          onOpen={(id) => setActiveTicketId(id)}
+        />
       ) : (
-        <div className="space-y-3">
-          {tickets.map((t) => (
-            <TicketCard
-              key={t.id}
-              ticket={t}
-              onOpen={() => setActiveTicketId(t.id)}
-            />
-          ))}
-        </div>
+        <>
+          {/* Tickets list */}
+          {loading ? (
+            <div className="text-center text-slate-500 py-8">Chargement…</div>
+          ) : tickets.length === 0 ? (
+            <div className="rounded-2xl border bg-white p-8 text-center text-slate-500">
+              <MessageSquare className="size-10 mx-auto mb-3 text-slate-300" />
+              Aucun ticket pour le moment.
+              <br />
+              <Button
+                variant="ghost"
+                onClick={() => setShowCreate(true)}
+                className="mt-2 text-sky-600 font-semibold"
+              >
+                Ouvrir mon premier ticket →
+              </Button>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {tickets.map((t) => (
+                <TicketCard
+                  key={t.id}
+                  ticket={t}
+                  onOpen={() => setActiveTicketId(t.id)}
+                />
+              ))}
+            </div>
+          )}
+        </>
       )}
 
       <CreateTicketDialog
@@ -152,6 +246,117 @@ export function SupportView() {
           load();
         }}
       />
+    </div>
+  );
+}
+
+function MyReportsList({
+  reports,
+  loading,
+  onOpen,
+}: {
+  reports: MyReport[];
+  loading: boolean;
+  onOpen: (id: string) => void;
+}) {
+  if (loading) {
+    return <div className="text-center text-slate-500 py-8">Chargement…</div>;
+  }
+  if (reports.length === 0) {
+    return (
+      <div className="rounded-2xl border bg-white p-8 text-center text-slate-500">
+        <Flag className="size-10 mx-auto mb-3 text-slate-300" />
+        Tu n'as signalé aucun vendeur pour le moment.
+        <br />
+        <span className="text-xs">
+          Tu peux signaler une annonce depuis la liste des jeux (icône 🚩) ou un
+          vendeur depuis une commande.
+        </span>
+      </div>
+    );
+  }
+  return (
+    <div className="space-y-3">
+      {reports.map((t) => {
+        const statusColor =
+          t.status === "OPEN"
+            ? "bg-amber-100 text-amber-700"
+            : t.status === "BOT_HANDLED"
+            ? "bg-sky-100 text-sky-700"
+            : t.status === "ADMIN_HANDLED"
+            ? "bg-violet-100 text-violet-700"
+            : t.status === "RESOLVED"
+            ? "bg-emerald-100 text-emerald-700"
+            : "bg-slate-100 text-slate-600";
+        const statusLabel =
+          t.status === "OPEN"
+            ? "En attente"
+            : t.status === "BOT_HANDLED"
+            ? "Bot a répondu"
+            : t.status === "ADMIN_HANDLED"
+            ? "Admin en cours"
+            : t.status === "RESOLVED"
+            ? "Résolu ✅"
+            : "Fermé";
+        const priority = PRIORITY_BADGE[t.priority] ?? PRIORITY_BADGE.NORMAL;
+        const orderListing = t.order?.listing;
+
+        return (
+          <button
+            key={t.id}
+            onClick={() => onOpen(t.id)}
+            className="w-full text-left rounded-2xl border bg-white p-4 shadow-sm hover:shadow-md transition-all"
+          >
+            <div className="flex items-start gap-3">
+              <div className="grid size-10 place-items-center rounded-xl bg-rose-50 text-xl shrink-0">
+                🛡️
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-start justify-between gap-2">
+                  <h3 className="font-bold text-slate-900 line-clamp-1">
+                    {t.subject}
+                  </h3>
+                  <span
+                    className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold ${statusColor}`}
+                  >
+                    {statusLabel}
+                  </span>
+                </div>
+                <div className="flex flex-wrap items-center gap-2 mt-0.5 text-xs text-slate-500">
+                  <span
+                    className={`rounded-full px-1.5 py-0.5 font-bold ${priority.cls}`}
+                  >
+                    Priorité {priority.label}
+                  </span>
+                  <span>·</span>
+                  <span>
+                    {new Date(t.updatedAt).toLocaleDateString("fr-FR", {
+                      day: "2-digit",
+                      month: "short",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
+                  </span>
+                </div>
+                {orderListing && (
+                  <p className="text-xs text-slate-500 mt-1">
+                    Commande : <strong>{orderListing.title}</strong>
+                    {orderListing.game?.name
+                      ? ` (${orderListing.game.name})`
+                      : ""}
+                    {t.order ? ` · ${t.order.amount} FCFA` : ""}
+                  </p>
+                )}
+                {t.messages?.[0] && (
+                  <div className="mt-2 flex items-start gap-1.5 text-xs text-slate-500 bg-slate-50 rounded-lg p-2">
+                    <span className="line-clamp-2">{t.messages[0].content}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          </button>
+        );
+      })}
     </div>
   );
 }

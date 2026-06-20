@@ -2,22 +2,29 @@
  * Wave Business GraphQL Scraper
  *
  * Polls the Wave Business internal GraphQL endpoint to detect incoming
- * payments matching a specific amount + recent timeframe.
+ * customer payments matching a specific amount + recent timeframe.
  *
- * Usage:
- *   const hit = await findWavePaymentByAmount(2500, new Date());
- *   if (hit) { /* payment confirmed *\/ }
+ * Uses the HistoryEntries_BusinessWalletHistoryQuery query captured
+ * from business.wave.com dashboard (DevTools → Network → graphql).
  *
- * TODO (YOU): Adjust the GraphQL query/resp parsing based on what
- * https://business.wave.com actually returns. The structure below is
- * a reasonable template based on common Wave Business API shapes.
+ * Response structure:
+ *   data.me.businessUser.business.walletHistory.historyEntries[]
+ * Each entry has:
+ *   - id, summary, whenEntered (timestamp), amount (signed), isPending, isCancelled
+ *   - __typename: MerchantSaleEntry | TransferSentEntry | TransferReceivedReversalEntry | ...
+ * Incoming customer payments are MerchantSaleEntry (positive amount).
  */
 
-import { WAVE_BUSINESS_GRAPHQL_URL, WAVE_BUSINESS_SESSION, WAVE_BUSINESS_ACCOUNT_ID } from "./wave-config";
+import {
+  WAVE_BUSINESS_GRAPHQL_URL,
+  WAVE_BUSINESS_WALLET_ID,
+  getWaveAuthHeader,
+  isWaveScraperConfigured,
+} from "./wave-config";
 
 export type WaveTransaction = {
   id: string;
-  amount: number; // in FCFA
+  amount: number; // in FCFA (positive for incoming)
   currency: string; // "XOF"
   type: "INCOMING" | "OUTGOING";
   status: "PENDING" | "SUCCESS" | "FAILED";
@@ -26,88 +33,282 @@ export type WaveTransaction = {
   senderName?: string;
   senderPhone?: string;
   reference?: string;
+  typename: string; // GraphQL __typename (MerchantSaleEntry, etc.)
 };
 
 /**
- * GraphQL query to list recent incoming transactions on the Wave Business account.
- *
- * TODO (YOU): This is a TEMPLATE — replace with the real query you see in
- * DevTools when you load the Wave Business transactions page.
+ * GraphQL query captured from business.wave.com dashboard.
+ * Lists transactions in a date range for a specific wallet.
  */
-const LIST_TXS_QUERY = `
-  query ListTransactions($accountId: ID!, $limit: Int!) {
-    account(id: $accountId) {
-      transactions(limit: $limit, types: ["P2P_TRANSFER", "PAYMENT"]) {
-        edges {
-          node {
+const HISTORY_QUERY = `
+query HistoryEntries_BusinessWalletHistoryQuery(
+  $start: Date!
+  $end: Date!
+  $walletOpaqueId: String!
+  $limit: Int
+  $transactionId: String
+  $customerMobileStr: String
+  $searchTerm: String
+  $surrogateEmployeeId: String
+  $includePending: Boolean
+  $transactionType: TransactionType
+) {
+  me {
+    merchant {
+      canRefund
+      name
+      id
+    }
+    businessUser {
+      rolePermissions
+      user {
+        merchant {
+          needsPinToRefund
+          id
+        }
+        id
+      }
+      business {
+        name
+        showGrossAmount
+        showSurrogateOptions
+        walletHistory(
+          start: $start
+          end: $end
+          walletOpaqueId: $walletOpaqueId
+          limit: $limit
+          transactionId: $transactionId
+          customerMobileStr: $customerMobileStr
+          surrogateEmployeeId: $surrogateEmployeeId
+          searchTerm: $searchTerm
+          includePending: $includePending
+          transactionType: $transactionType
+        ) {
+          batches {
+            __typename
             id
+            totalCost
+            whenCreated
+            senderName
+            senderMobile
+          }
+          historyEntries {
+            __typename
+            id
+            summary
+            whenEntered
             amount
-            currency
-            direction
-            status
-            timestamp
-            counterparty {
-              name
-              mobile
+            isPending
+            isCancelled
+            baseReceiptFields {
+              formatType
+              label
+              value
             }
-            reference
+            ... on AgentTransactionEntry {
+              agentTransactionId
+              isDeposit
+              agentName
+              type
+              atxCashierName: counterpartyNameOnly
+              atxCashierMobile: customerMobile
+            }
+            ... on BillPaymentEntry {
+              billName
+              billAccount
+              transferOpaqueId: transferId
+            }
+            ... on MerchantSaleEntry {
+              isRefunded
+              isCheckout
+              clientReference
+              transferId
+              customerMobile: unmaskedSenderMobile
+              customerName: senderName
+              cashierName: merchantUName
+              grossAmount
+              feeAmount
+              actionSource
+              overrideBusinessName
+              businessSurrogate {
+                name
+                employeeIdNumber
+                id
+              }
+              customFields {
+                label
+                value
+              }
+            }
+            ... on MerchantSubAccountFundingEntry {
+              fundingTransferId
+              baseReceiptFields {
+                label
+                value
+              }
+              summary
+              subAccountFundingMerchantName: sendingMerchantName
+              receivingMerchantName
+              isReversal
+            }
+            ... on MerchantRefundEntry {
+              transferId
+              customerMobile: unmaskedSenderMobile
+              customerName: senderName
+              cashierName: merchantUName
+              businessSurrogate {
+                name
+                employeeIdNumber
+                id
+              }
+            }
+            ... on PayoutTransferEntry {
+              tcid
+              maybeRecipientName: recipientName
+              recipientMobile
+              isReversal
+              isReversed
+              reversalSource
+              grossAmount
+            }
+            ... on TransferReceivedReversalEntry {
+              transferOpaqueId: transferId
+              senderName
+              senderMobile
+            }
+            ... on TransferSentEntry {
+              isRefunded
+              recipientName
+              recipientMobile
+              transferOpaqueId: transferId
+            }
+            ... on TransferSentReversalEntry {
+              transferOpaqueId: transferId
+              senderName
+              senderMobile
+            }
+            ... on MerchantSweepSentEntry {
+              sweepGrossVolume
+              businessSurrogate {
+                name
+                employeeIdNumber
+                id
+              }
+            }
+            ... on MerchantSweepReceivedEntry {
+              sweepGrossVolume
+              businessSurrogate {
+                name
+                employeeIdNumber
+                id
+              }
+              sendingMerchantName
+            }
+            ... on B2BPaymentEntry {
+              transferId
+              isReversed
+              isReversal
+              grossAmount
+              businessSurrogate {
+                name
+                employeeIdNumber
+                id
+              }
+            }
+            ... on RemittanceTransferReceivedEntry {
+              opaqueId
+              isReversed
+              externalReference
+            }
+            ... on RemittanceTransferReversalEntry {
+              opaqueId
+            }
+            ... on UserLinkedAccountTransferB2WEntry {
+              liaTransferId
+            }
+            ... on UserLinkedAccountTransferW2BEntry {
+              liaTransferId
+            }
+            ... on UserLinkedAccountTransferB2WEntryReversal {
+              liaTransferId
+            }
+            ... on UserLinkedAccountTransferW2BEntryReversal {
+              liaTransferId
+            }
+            ... on BusinessLoanDisbursementEntry {
+              userFacingTransactionId
+            }
+            ... on BusinessLoanRepaymentEntry {
+              userFacingTransactionId
+            }
           }
         }
+        id
       }
+      id
     }
+    id
   }
+}
 `;
+
+type HistoryEntry = {
+  __typename: string;
+  id: string;
+  summary: string | null;
+  whenEntered: string;
+  amount: number;
+  isPending: boolean;
+  isCancelled: boolean;
+  // MerchantSaleEntry fields
+  customerMobile?: string;
+  customerName?: string;
+  clientReference?: string;
+  transferId?: string;
+  grossAmount?: number;
+  feeAmount?: number;
+  // Other entry types
+  senderName?: string;
+  senderMobile?: string;
+  recipientName?: string;
+  recipientMobile?: string;
+};
 
 type GraphQLResponse = {
   data?: {
-    account?: {
-      transactions?: {
-        edges: Array<{
-          node: {
-            id: string;
-            amount: number;
-            currency: string;
-            direction: string;
-            status: string;
-            timestamp: string;
-            counterparty?: { name?: string; mobile?: string };
-            reference?: string;
+    me?: {
+      businessUser?: {
+        business?: {
+          walletHistory?: {
+            historyEntries?: HistoryEntry[];
           };
-        }>;
+        };
       };
     };
   };
   errors?: Array<{ message: string }>;
 };
 
-async function callWaveGraphQL<T>(query: string, variables: Record<string, unknown>): Promise<T> {
-  if (!WAVE_BUSINESS_SESSION) {
-    throw new Error("WAVE_BUSINESS_SESSION not configured");
-  }
-  if (!WAVE_BUSINESS_ACCOUNT_ID) {
-    throw new Error("WAVE_BUSINESS_ACCOUNT_ID not configured");
+async function callWaveGraphQL<T>(
+  query: string,
+  variables: Record<string, unknown>
+): Promise<T> {
+  if (!isWaveScraperConfigured()) {
+    throw new Error("Wave scraper not configured (missing token or wallet ID)");
   }
 
-  // Build auth header — Wave Business dashboard uses a session cookie.
-  // The cookie format is usually: `session=<token>` or just `<token>`.
-  // Adjust below based on what you see in DevTools.
-  const authHeader = WAVE_BUSINESS_SESSION.startsWith("Bearer ")
-    ? WAVE_BUSINESS_SESSION
-    : `Bearer ${WAVE_BUSINESS_SESSION}`;
-  const cookieHeader = WAVE_BUSINESS_SESSION.startsWith("session=")
-    ? WAVE_BUSINESS_SESSION
-    : `session=${WAVE_BUSINESS_SESSION}`;
+  const authHeader = getWaveAuthHeader();
 
   const res = await fetch(WAVE_BUSINESS_GRAPHQL_URL, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
+      "Accept": "*/*",
       "Authorization": authHeader,
-      "Cookie": cookieHeader,
-      // Wave Business dashboard typically sends these:
       "Origin": "https://business.wave.com",
       "Referer": "https://business.wave.com/",
-      "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
+      "User-Agent":
+        "Mozilla/5.0 (Linux; Android 15; Pixel 9) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Mobile Safari/537.36",
     },
     body: JSON.stringify({ query, variables }),
     cache: "no-store",
@@ -115,56 +316,90 @@ async function callWaveGraphQL<T>(query: string, variables: Record<string, unkno
 
   if (!res.ok) {
     const text = await res.text().catch(() => "");
-    throw new Error(`Wave GraphQL ${res.status}: ${text.slice(0, 200)}`);
+    throw new Error(`Wave GraphQL ${res.status}: ${text.slice(0, 300)}`);
   }
 
   const json = (await res.json()) as GraphQLResponse;
   if (json.errors?.length) {
-    throw new Error(`Wave GraphQL errors: ${json.errors.map((e) => e.message).join("; ")}`);
+    throw new Error(
+      `Wave GraphQL errors: ${json.errors.map((e) => e.message).join("; ")}`
+    );
   }
   return json as unknown as T;
 }
 
-function parseTransaction(node: {
-  id: string;
-  amount: number;
-  currency: string;
-  direction: string;
-  status: string;
-  timestamp: string;
-  counterparty?: { name?: string; mobile?: string };
-  reference?: string;
-}): WaveTransaction {
-  const direction = String(node.direction).toUpperCase();
-  const status = String(node.status).toUpperCase();
+function parseEntry(entry: HistoryEntry): WaveTransaction {
+  const typename = entry.__typename;
+  // Incoming types: MerchantSaleEntry (customer pays business), PayoutTransferEntry reversal, etc.
+  // Outgoing types: TransferSentEntry, PayoutTransferEntry, MerchantRefundEntry
+  const incomingTypes = [
+    "MerchantSaleEntry",
+    "TransferReceivedReversalEntry",
+    "MerchantSweepReceivedEntry",
+    "RemittanceTransferReceivedEntry",
+    "UserLinkedAccountTransferW2BEntry",
+  ];
+  const type: "INCOMING" | "OUTGOING" = incomingTypes.includes(typename)
+    ? "INCOMING"
+    : "OUTGOING";
+
+  // Status: if isPending → PENDING, if isCancelled → FAILED, else SUCCESS
+  let status: WaveTransaction["status"] = "SUCCESS";
+  if (entry.isPending) status = "PENDING";
+  else if (entry.isCancelled) status = "FAILED";
+
+  // Extract sender info (works for MerchantSaleEntry which has customerName/customerMobile)
+  const senderName = entry.customerName ?? entry.senderName ?? undefined;
+  const senderPhone = entry.customerMobile ?? entry.senderMobile ?? undefined;
+
   return {
-    id: node.id,
-    amount: Number(node.amount) || 0,
-    currency: String(node.currency || "XOF"),
-    type: direction === "IN" || direction === "CREDIT" ? "INCOMING" : "OUTGOING",
-    status: status === "SUCCEEDED" || status === "SUCCESS" ? "SUCCESS" : status === "PENDING" ? "PENDING" : "FAILED",
-    timestamp: node.timestamp,
-    senderName: node.counterparty?.name,
-    senderPhone: node.counterparty?.mobile,
-    reference: node.reference,
+    id: entry.id,
+    amount: Math.abs(Number(entry.amount) || 0),
+    currency: "XOF",
+    type,
+    status,
+    timestamp: entry.whenEntered,
+    senderName,
+    senderPhone,
+    reference: entry.clientReference ?? entry.transferId ?? undefined,
+    typename,
   };
 }
 
 /**
- * Lists recent incoming Wave transactions (last N minutes).
+ * Lists recent incoming Wave transactions (default: last 7 days, max 100).
  */
-export async function listRecentIncomingTransactions(limit = 20): Promise<WaveTransaction[]> {
-  const resp = await callWaveGraphQL<GraphQLResponse>(LIST_TXS_QUERY, {
-    accountId: WAVE_BUSINESS_ACCOUNT_ID,
+export async function listRecentIncomingTransactions(
+  options: { days?: number; limit?: number } = {}
+): Promise<WaveTransaction[]> {
+  const { days = 7, limit = 100 } = options;
+
+  // Build date range (YYYY-MM-DD)
+  const end = new Date();
+  const start = new Date(end.getTime() - days * 24 * 60 * 60 * 1000);
+  const formatDate = (d: Date) => d.toISOString().slice(0, 10);
+
+  const resp = await callWaveGraphQL<GraphQLResponse>(HISTORY_QUERY, {
+    start: formatDate(start),
+    end: formatDate(end),
+    walletOpaqueId: WAVE_BUSINESS_WALLET_ID,
     limit,
+    transactionId: null,
+    customerMobileStr: null,
+    searchTerm: null,
+    surrogateEmployeeId: null,
+    includePending: true,
+    transactionType: "ALL",
   });
-  const edges = resp.data?.account?.transactions?.edges ?? [];
-  return edges.map((e) => parseTransaction(e.node)).filter((t) => t.type === "INCOMING");
+
+  const entries =
+    resp.data?.me?.businessUser?.business?.walletHistory?.historyEntries ?? [];
+  return entries.map(parseEntry).filter((t) => t.type === "INCOMING");
 }
 
 /**
  * Finds an incoming Wave transaction matching the given amount within
- * the last `withinMs` milliseconds. Returns the first match.
+ * the last N minutes. Returns the first match.
  *
  * @param amountFcfa - exact amount to match (in FCFA)
  * @param since      - only consider transactions after this Date
@@ -173,7 +408,8 @@ export async function findWavePaymentByAmount(
   amountFcfa: number,
   since: Date
 ): Promise<WaveTransaction | null> {
-  const txs = await listRecentIncomingTransactions(50);
+  // Query last 2 days to be safe (in case of timezone issues)
+  const txs = await listRecentIncomingTransactions({ days: 2, limit: 100 });
   const sinceMs = since.getTime();
   for (const tx of txs) {
     if (tx.amount !== amountFcfa) continue;
@@ -183,4 +419,30 @@ export async function findWavePaymentByAmount(
     return tx;
   }
   return null;
+}
+
+/**
+ * Test the Wave GraphQL connection by listing the 5 most recent
+ * incoming transactions. Useful for debugging.
+ */
+export async function testWaveConnection(): Promise<{
+  ok: boolean;
+  count: number;
+  sample?: WaveTransaction;
+  error?: string;
+}> {
+  try {
+    const txs = await listRecentIncomingTransactions({ days: 7, limit: 5 });
+    return {
+      ok: true,
+      count: txs.length,
+      sample: txs[0],
+    };
+  } catch (e) {
+    return {
+      ok: false,
+      count: 0,
+      error: e instanceof Error ? e.message : "Unknown error",
+    };
+  }
 }

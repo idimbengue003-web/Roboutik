@@ -61,6 +61,18 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // ANTI-SPAM: limit new listings per seller to 10 per rolling 24h window.
+    const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const recentListingCount = await db.listing.count({
+      where: { sellerId: userId, createdAt: { gt: oneDayAgo } },
+    });
+    if (recentListingCount >= 10) {
+      return NextResponse.json(
+        { error: "Tu as créé 10 annonces aujourd'hui. Reviens demain." },
+        { status: 429 }
+      );
+    }
+
     // Compute buyer price: sellerNetPrice + 20% commission
     const buyerPrice = Math.round(sellerNetPrice * 1.2);
     const commission = buyerPrice - sellerNetPrice;

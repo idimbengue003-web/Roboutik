@@ -78,6 +78,13 @@ export const reportSellerSchema = z.object({
   details: z.string().trim().max(500, "Détails trop long").optional().or(z.literal("")),
 });
 
+// Schema for reporting a seller from a listing (pre-sale, no order context).
+export const reportListingSchema = z.object({
+  userId: z.string().min(1, "userId requis"),
+  reason: z.string().trim().min(1, "Motif requis").max(200, "Motif trop long"),
+  details: z.string().trim().max(500, "Détails trop long").optional().or(z.literal("")),
+});
+
 // ============ LISTINGS ============
 
 export const createListingSchema = z.object({
@@ -158,6 +165,9 @@ export const adminReplySchema = z.object({
     .min(1, "Message vide")
     .max(2000, "Message trop long"),
   resolve: z.boolean().optional(),
+  // dismissed=true means the admin considers the report unfounded.
+  // Used by the buyer auto-ban check (false reports can lead to a buyer ban).
+  dismissed: z.boolean().optional(),
 });
 
 // ============ CONVERSATIONS ============
@@ -188,13 +198,33 @@ export const banUserSchema = z.object({
   reason: z.string().trim().max(200, "Motif trop long").optional().or(z.literal("")),
 });
 
+// Variant of banUserSchema that also requires a 2FA code (sensitive action).
+export const banUserSchemaWith2FA = z.object({
+  adminId: z.string().min(1, "adminId requis"),
+  reason: z.string().trim().max(200, "Motif trop long").optional().or(z.literal("")),
+  twoFactorCode: z.string().trim().min(1, "Code 2FA requis").max(10, "Code 2FA invalide"),
+});
+
 export const adminActionSchema = z.object({
   adminId: z.string().min(1, "adminId requis"),
+});
+
+// Variant of adminActionSchema that also requires a 2FA code (sensitive action).
+export const adminActionSchemaWith2FA = z.object({
+  adminId: z.string().min(1, "adminId requis"),
+  twoFactorCode: z.string().trim().min(1, "Code 2FA requis").max(10, "Code 2FA invalide"),
 });
 
 export const rejectWithdrawalSchema = z.object({
   adminId: z.string().min(1, "adminId requis"),
   reason: z.string().trim().max(200, "Raison trop long").optional().or(z.literal("")),
+});
+
+// Variant of rejectWithdrawalSchema with 2FA requirement.
+export const rejectWithdrawalSchemaWith2FA = z.object({
+  adminId: z.string().min(1, "adminId requis"),
+  reason: z.string().trim().max(200, "Raison trop long").optional().or(z.literal("")),
+  twoFactorCode: z.string().trim().min(1, "Code 2FA requis").max(10, "Code 2FA invalide"),
 });
 
 // ============ SELLER ============

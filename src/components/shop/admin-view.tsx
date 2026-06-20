@@ -321,11 +321,44 @@ function UsersTab({ adminId }: { adminId: string }) {
 
   async function handleBan(reason: string) {
     if (!banTarget) return;
+    // 2FA: request a code by email, then prompt the admin to type it.
+    let twoFactorCode = "";
+    try {
+      const sendR = await fetch(`/api/admin/2fa/send-code`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ adminId }),
+      });
+      if (!sendR.ok) {
+        const e = await sendR.json().catch(() => ({}));
+        throw new Error(e.error ?? "Impossible d'envoyer le code 2FA");
+      }
+      toast({
+        title: "🔒 Code 2FA envoyé par email",
+        description: "Regarde ta boîte mail (valable 10 min).",
+      });
+      twoFactorCode = window.prompt(
+        "🔒 Code de sécurité admin\n\nUn code à 6 chiffres a été envoyé à ton email. Saisis-le pour confirmer le bannissement :",
+        ""
+      )?.trim() ?? "";
+      if (!twoFactorCode) {
+        toast({ title: "Action annulée", description: "Code 2FA requis." });
+        return;
+      }
+    } catch (e) {
+      toast({
+        title: "Erreur 2FA",
+        description: e instanceof Error ? e.message : "Erreur",
+        variant: "destructive",
+      });
+      return;
+    }
+
     try {
       const r = await fetch(`/api/admin/users/${banTarget.id}/ban`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ adminId, reason }),
+        body: JSON.stringify({ adminId, reason, twoFactorCode }),
       });
       if (!r.ok) {
         const e = await r.json().catch(() => ({}));
@@ -601,11 +634,49 @@ function WithdrawalsTab({ adminId }: { adminId: string }) {
 
   async function handleAction(w: Withdrawal & { seller: User }, action: "validate" | "reject") {
     const reason = action === "reject" ? prompt("Raison du refus ?") ?? "" : "";
+
+    // 2FA: request a code by email, then prompt the admin to type it.
+    let twoFactorCode = "";
+    try {
+      const sendR = await fetch(`/api/admin/2fa/send-code`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ adminId }),
+      });
+      if (!sendR.ok) {
+        const e = await sendR.json().catch(() => ({}));
+        throw new Error(e.error ?? "Impossible d'envoyer le code 2FA");
+      }
+      toast({
+        title: "🔒 Code 2FA envoyé par email",
+        description: "Regarde ta boîte mail (valable 10 min).",
+      });
+      twoFactorCode = window.prompt(
+        `🔒 Code de sécurité admin\n\nUn code à 6 chiffres a été envoyé à ton email. Saisis-le pour confirmer ${action === "validate" ? "la validation" : "le refus"} du retrait :`,
+        ""
+      )?.trim() ?? "";
+      if (!twoFactorCode) {
+        toast({ title: "Action annulée", description: "Code 2FA requis." });
+        return;
+      }
+    } catch (e) {
+      toast({
+        title: "Erreur 2FA",
+        description: e instanceof Error ? e.message : "Erreur",
+        variant: "destructive",
+      });
+      return;
+    }
+
     try {
       const r = await fetch(`/api/admin/withdrawals/${w.id}/${action}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ adminId, reason: reason || undefined }),
+        body: JSON.stringify({
+          adminId,
+          reason: reason || undefined,
+          twoFactorCode,
+        }),
       });
       if (!r.ok) {
         const e = await r.json().catch(() => ({}));

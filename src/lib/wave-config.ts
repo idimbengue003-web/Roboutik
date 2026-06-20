@@ -3,14 +3,19 @@
  *
  * Two parts:
  *  1. CHECKOUT LINK (public, used by buyers to pay)
- *     - Replace WAVE_CHECKOUT_URL below with your Wave Business payment link
+ *     - Replace WAVE_CHECKOUT_BASE_URL below with your Wave Business payment link
  *     - The link MUST accept an `amount` parameter in FCFA
  *       (e.g. https://pay.wave.com/m/M_xxx?amount=2500)
  *
  *  2. SCRAPER (server-side only, used to confirm payments < 10s)
  *     - Uses the Wave Business internal GraphQL endpoint
- *     - Authenticated via WAVE_SESSION cookie OR bearer token
+ *     - Authenticated via Basic auth (username empty, password = token)
  *     - Configure credentials in Vercel env vars (never in code)
+ *
+ * Values confirmed from user's cURL capture (June 2026):
+ *   - GraphQL endpoint: https://sn.mmapp.wave.com/a/business_graphql
+ *   - Wallet ID: W_sn_LUvGY4hJVmNP (from business.wave.com dashboard)
+ *   - Auth: Basic base64(":US_tok_sn_xxx") where xxx is the token
  */
 
 // ----- 1. PUBLIC CHECKOUT LINK -----
@@ -36,31 +41,34 @@ export function buildWaveCheckoutUrl(amountFcfa: number): string {
 }
 
 // ----- 2. SCRAPER (server-side only) -----
-// Configure these in Vercel Project Settings → Environment Variables
-//
-// WAVE_BUSINESS_GRAPHQL_URL  → endpoint interne GraphQL (généralement https://business.wave.com/graphql)
-// WAVE_BUSINESS_SESSION      → cookie de session (ex: session=xxx) ou Bearer token
-// WAVE_BUSINESS_ACCOUNT_ID   → ton account_id Wave Business (visible dans l'URL du dashboard)
-//
-// HOW TO GET THESE (instructions for you):
-// 1. Connecte-toi à https://business.wave.com
-// 2. Ouvre DevTools (F12) → onglet Network → filtre "graphql"
-// 3. Effectue une action (ex: rafraîchir les transactions)
-// 4. Clique sur la requête graphql → onglet Headers
-//    → Copie l'URL (WAVE_BUSINESS_GRAPHQL_URL)
-//    → Copie le cookie `session` (WAVE_BUSINESS_SESSION)
-// 5. Dans l'URL du dashboard, récupère l'account_id (WAVE_BUSINESS_ACCOUNT_ID)
-
+// GraphQL endpoint confirmed via DevTools on business.wave.com
 export const WAVE_BUSINESS_GRAPHQL_URL =
-  process.env.WAVE_BUSINESS_GRAPHQL_URL || "https://business.wave.com/graphql";
+  process.env.WAVE_BUSINESS_GRAPHQL_URL ||
+  "https://sn.mmapp.wave.com/a/business_graphql";
 
-export const WAVE_BUSINESS_SESSION = process.env.WAVE_BUSINESS_SESSION || "";
-export const WAVE_BUSINESS_ACCOUNT_ID = process.env.WAVE_BUSINESS_ACCOUNT_ID || "";
+// Token format: US_tok_sn_xxx (Basic auth password, username is empty)
+export const WAVE_BUSINESS_TOKEN = process.env.WAVE_BUSINESS_TOKEN || "";
+
+// Wallet opaque ID, format: W_sn_xxx
+export const WAVE_BUSINESS_WALLET_ID =
+  process.env.WAVE_BUSINESS_WALLET_ID || "W_sn_LUvGY4hJVmNP";
 
 /**
  * Whether the Wave scraper is configured.
  * If false, the system will fall back to manual confirmation.
  */
 export function isWaveScraperConfigured(): boolean {
-  return !!(WAVE_BUSINESS_SESSION && WAVE_BUSINESS_ACCOUNT_ID);
+  return !!(WAVE_BUSINESS_TOKEN && WAVE_BUSINESS_WALLET_ID);
+}
+
+/**
+ * Build the Basic auth header value.
+ * Format: "Basic base64(':<token>')" — username empty, password = token.
+ */
+export function getWaveAuthHeader(): string {
+  if (!WAVE_BUSINESS_TOKEN) return "";
+  // Basic auth = base64("username:password"), here username is empty
+  const credentials = `:${WAVE_BUSINESS_TOKEN}`;
+  const base64 = Buffer.from(credentials).toString("base64");
+  return `Basic ${base64}`;
 }

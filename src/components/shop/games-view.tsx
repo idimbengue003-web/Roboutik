@@ -2,7 +2,7 @@
 
 import { useAppStore } from "@/lib/store";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Store, ChevronRight, MessageCircle } from "lucide-react";
+import { ArrowLeft, Store, ChevronRight, MessageCircle, Flag } from "lucide-react";
 import type { Listing } from "@/lib/types";
 import { formatFCFA } from "@/lib/types";
 import { useEffect, useState, useCallback } from "react";
@@ -11,7 +11,7 @@ import { RatingBadge } from "./rating-modal";
 import { ContactSellerDialog } from "./messages-view";
 
 export function GamesView() {
-  const { games, selectedGameId, setSelectedGameId, setPendingListingId, setLoginOpen, me, setActiveConversationId } =
+  const { games, selectedGameId, setSelectedGameId, setPendingListingId, setLoginOpen, me, setActiveConversationId, setReportListingId } =
     useAppStore();
   const [listings, setListings] = useState<Listing[]>([]);
   const [loading, setLoading] = useState(false);
@@ -61,6 +61,14 @@ export function GamesView() {
       return;
     }
     setContactListing(l);
+  }
+
+  function reportListing(l: Listing) {
+    if (!me) {
+      setLoginOpen(true);
+      return;
+    }
+    setReportListingId(l.id);
   }
 
   // View: a game is selected — show its listings
@@ -127,6 +135,7 @@ export function GamesView() {
                 listing={l}
                 onBuy={() => buy(l)}
                 onContact={() => openContact(l)}
+                onReport={() => reportListing(l)}
               />
             ))}
           </div>
@@ -196,10 +205,12 @@ function ListingCard({
   listing,
   onBuy,
   onContact,
+  onReport,
 }: {
   listing: Listing;
   onBuy: () => void;
   onContact: () => void;
+  onReport: () => void;
 }) {
   return (
     <div className="flex flex-col rounded-2xl border bg-white shadow-sm overflow-hidden hover:shadow-md transition-shadow">
@@ -210,6 +221,18 @@ function ListingCard({
             {listing.game.name}
           </span>
         )}
+        {/* Discreet report button in the top-right corner */}
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onReport();
+          }}
+          title="Signaler cette annonce"
+          className="absolute top-2 right-2 grid size-7 place-items-center rounded-full bg-white/80 hover:bg-rose-50 text-rose-500 hover:text-rose-600 shadow-sm transition-colors"
+          aria-label="Signaler cette annonce"
+        >
+          <Flag className="size-3.5" />
+        </button>
       </div>
       <div className="flex flex-1 flex-col p-4">
         <h3 className="font-bold text-slate-900 line-clamp-1">{listing.title}</h3>

@@ -48,6 +48,10 @@ type AppState = {
   reportOrderId: string | null;
   setReportOrderId: (id: string | null) => void;
 
+  // report: listing id to report (pre-sale, opens report-listing dialog)
+  reportListingId: string | null;
+  setReportListingId: (id: string | null) => void;
+
   // profile modal
   profileOpen: boolean;
   setProfileOpen: (b: boolean) => void;
@@ -89,6 +93,9 @@ export const useAppStore = create<AppState>((set) => ({
 
   reportOrderId: null,
   setReportOrderId: (id) => set({ reportOrderId: id }),
+
+  reportListingId: null,
+  setReportListingId: (id) => set({ reportListingId: id }),
 
   profileOpen: false,
   setProfileOpen: (b) => set({ profileOpen: b }),
