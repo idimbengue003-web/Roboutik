@@ -250,3 +250,22 @@ model NotificationLog {
   @@index([recipientUserId, createdAt])
   @@schema("roboutik")
 }
+
+// Self-hosted error tracking (Sentry-like)
+model ErrorLog {
+  id         String   @id @default(cuid())
+  message    String
+  stack      String?
+  severity   String   @default("medium") // low | medium | high | critical
+  userId     String?
+  path       String?
+  method     String?
+  userAgent  String?
+  metadata   String?  // JSON
+  resolved   Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  @@index([severity, createdAt])
+  @@index([resolved, createdAt])
+  @@schema("roboutik")
+}
