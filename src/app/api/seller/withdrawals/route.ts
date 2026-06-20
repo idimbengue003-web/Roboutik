@@ -1,48 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { parseBody, errorResponse, createWithdrawalSchema } from "@/lib/validation";
+import { sanitizePhone } from "@/lib/sanitize";
 
 // POST /api/seller/withdrawals  body: { userId, amount, waveNumber }
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json();
-    const { userId, amount, waveNumber } = body as {
-      userId?: string;
-      amount?: number;
-      waveNumber?: string;
-    };
-
-    if (!userId || !amount || !waveNumber) {
-      return NextResponse.json(
-        { error: "userId, amount, waveNumber requis" },
-        { status: 400 }
-      );
-    }
-
-    // ANTI-FRAUD: validate amount type
-    if (
-      typeof amount !== "number" ||
-      !Number.isFinite(amount) ||
-      !Number.isInteger(amount)
-    ) {
-      return NextResponse.json({ error: "Montant invalide" }, { status: 400 });
-    }
-
-    if (amount < 500) {
-      return NextResponse.json(
-        { error: "Retrait minimum : 500 FCFA" },
-        { status: 400 }
-      );
-    }
-
-    if (amount > 5_000_000) {
-      return NextResponse.json(
-        { error: "Retrait maximum : 5 000 000 FCFA. Contacte le support." },
-        { status: 400 }
-      );
-    }
+    const body = await req.json().catch(() => null);
+    const [data, error] = parseBody(createWithdrawalSchema, body);
+    if (error) return errorResponse(error);
+    const { userId, amount } = data!;
 
     // ANTI-FRAUD: validate Wave number format (Senegal: 7X XXX XX XX = 9 digits starting with 7)
-    const cleanedNumber = waveNumber.replace(/\s+/g, "");
+    const cleanedNumber = sanitizePhone(data!.waveNumber.replace(/\s+/g, ""));
     if (!/^7\d{8}$/.test(cleanedNumber)) {
       return NextResponse.json(
         { error: "Numéro Wave invalide. Format attendu : 76 123 45 67" },

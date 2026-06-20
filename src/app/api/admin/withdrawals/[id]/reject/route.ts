@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getActorById, errorResponse, logAdminAction } from "@/lib/security";
+import { parseBody, rejectWithdrawalSchema } from "@/lib/validation";
+import { sanitizeMessage } from "@/lib/sanitize";
 
 // POST /api/admin/withdrawals/[id]/reject
 // body: { adminId, reason }
@@ -10,8 +12,11 @@ export async function POST(
 ) {
   try {
     const { id } = await params;
-    const body = await req.json().catch(() => ({}));
-    const { adminId, reason } = body as { adminId?: string; reason?: string };
+    const body = await req.json().catch(() => null);
+    const [data, parseErr] = parseBody(rejectWithdrawalSchema, body);
+    if (parseErr) return errorResponse(parseErr);
+    const { adminId } = data!;
+    const reason = data!.reason ? sanitizeMessage(data!.reason) : "";
 
     const { user: admin, error } = await getActorById(adminId, {
       requireAdmin: true,
@@ -53,7 +58,7 @@ export async function POST(
       metadata: {
         withdrawalId: id,
         amount: withdrawal.amount,
-        reason: reason ?? null,
+        reason: reason || null,
       },
     });
 

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { parseBody, errorResponse, accountDeleteSchema } from "@/lib/validation";
 
 /**
  * POST /api/account/delete
@@ -24,18 +25,10 @@ import { db } from "@/lib/db";
  */
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json();
-    const { userId, confirmUsername } = body as {
-      userId?: string;
-      confirmUsername?: string;
-    };
-
-    if (!userId || !confirmUsername) {
-      return NextResponse.json(
-        { error: "userId et confirmUsername requis" },
-        { status: 400 }
-      );
-    }
+    const body = await req.json().catch(() => null);
+    const [data, error] = parseBody(accountDeleteSchema, body);
+    if (error) return errorResponse(error);
+    const { userId, confirmUsername } = data!;
 
     const user = await db.user.findUnique({ where: { id: userId } });
     if (!user) {

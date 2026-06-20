@@ -103,7 +103,7 @@ export function middleware(req: NextRequest) {
     path === "/robots.txt" ||
     path.startsWith("/games/") || // public game images
     path === "/" ||
-    path === "/steal-a-brainrot-hero.png"
+    path === "/steal-a-brainrot-hero.webp"
   ) {
     return NextResponse.next();
   }

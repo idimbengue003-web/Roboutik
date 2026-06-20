@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getActorById, errorResponse } from "@/lib/security";
 import { classifyMessage } from "@/lib/support-bot";
+import { parseBody, ticketMessageSchema } from "@/lib/validation";
+import { sanitizeMessage } from "@/lib/sanitize";
 
 // GET /api/support/tickets/[id]/messages?userId=...
 export async function GET(
@@ -43,15 +45,11 @@ export async function POST(
 ) {
   try {
     const { id } = await params;
-    const body = await req.json();
-    const { userId, content } = body as { userId?: string; content?: string };
-
-    if (!userId || !content?.trim()) {
-      return NextResponse.json(
-        { error: "userId et content requis" },
-        { status: 400 }
-      );
-    }
+    const body = await req.json().catch(() => null);
+    const [data, parseErr] = parseBody(ticketMessageSchema, body);
+    if (parseErr) return errorResponse(parseErr);
+    const { userId } = data!;
+    const content = sanitizeMessage(data!.content);
 
     const { user, error } = await getActorById(userId);
     if (error) return errorResponse(error);
@@ -72,7 +70,7 @@ export async function POST(
         ticketId: id,
         senderId: user!.id,
         senderRole: "USER",
-        content: content.trim(),
+        content,
         isAuto: false,
       },
     });

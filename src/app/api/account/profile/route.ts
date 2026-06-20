@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { parseBody, errorResponse, profileUpdateSchema } from "@/lib/validation";
+import { sanitizeUsername, sanitizeAvatar } from "@/lib/sanitize";
 
 /**
  * PATCH /api/account/profile
@@ -9,16 +11,10 @@ import { db } from "@/lib/db";
  */
 export async function PATCH(req: NextRequest) {
   try {
-    const body = await req.json();
-    const { userId, username, avatar } = body as {
-      userId?: string;
-      username?: string;
-      avatar?: string;
-    };
-
-    if (!userId) {
-      return NextResponse.json({ error: "userId requis" }, { status: 400 });
-    }
+    const body = await req.json().catch(() => null);
+    const [data, error] = parseBody(profileUpdateSchema, body);
+    if (error) return errorResponse(error);
+    const { userId } = data!;
 
     const user = await db.user.findUnique({ where: { id: userId } });
     if (!user) {
@@ -27,8 +23,8 @@ export async function PATCH(req: NextRequest) {
 
     const updateData: { username?: string; avatar?: string | null } = {};
 
-    if (username !== undefined) {
-      const trimmed = username.trim();
+    if (data!.username !== undefined) {
+      const trimmed = sanitizeUsername(data!.username);
       if (trimmed.length < 2 || trimmed.length > 30) {
         return NextResponse.json(
           { error: "Pseudo entre 2 et 30 caractères" },
@@ -51,9 +47,9 @@ export async function PATCH(req: NextRequest) {
       updateData.username = trimmed;
     }
 
-    if (avatar !== undefined) {
+    if (data!.avatar !== undefined) {
       // Validate: must be a single emoji or short string
-      const trimmed = avatar.trim();
+      const trimmed = sanitizeAvatar(data!.avatar);
       if (trimmed.length === 0 || trimmed.length > 10) {
         return NextResponse.json(
           { error: "Avatar invalide (1-10 caractères)" },

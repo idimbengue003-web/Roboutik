@@ -40,7 +40,7 @@ export function HomeView() {
       <section className="relative overflow-hidden rounded-3xl mx-3 sm:mx-6 mt-4 shadow-2xl">
         <div className="absolute inset-0 bg-gradient-to-br from-fuchsia-600 via-rose-500 to-orange-400" />
         <img
-          src="/steal-a-brainrot-hero.png"
+          src="/steal-a-brainrot-hero.webp"
           alt="Steal a Brainrot - le jeu Roblox culte"
           className="absolute inset-0 size-full object-cover opacity-80 mix-blend-overlay"
         />

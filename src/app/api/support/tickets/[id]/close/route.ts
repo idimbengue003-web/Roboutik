@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getActorById, errorResponse } from "@/lib/security";
+import { parseBody, adminActionSchema } from "@/lib/validation";
 
 // POST /api/support/tickets/[id]/close
 // body: { userId }
@@ -10,12 +11,12 @@ export async function POST(
 ) {
   try {
     const { id } = await params;
-    const body = await req.json();
-    const { userId } = body as { userId?: string };
-
-    if (!userId) {
-      return NextResponse.json({ error: "userId required" }, { status: 400 });
-    }
+    const rawBody = await req.json().catch(() => null) as { userId?: string } | null;
+    // The body uses `userId`, but adminActionSchema validates `adminId`.
+    // Rename the field at the boundary so we can reuse adminActionSchema.
+    const [data, parseErr] = parseBody(adminActionSchema, { adminId: rawBody?.userId });
+    if (parseErr) return errorResponse(parseErr);
+    const userId = data!.adminId;
 
     const { user, error } = await getActorById(userId);
     if (error) return errorResponse(error);

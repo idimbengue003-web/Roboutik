@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getActorById, errorResponse, logAdminAction } from "@/lib/security";
+import { parseBody, adminActionSchema } from "@/lib/validation";
 
 // POST /api/admin/users/[id]/unban
 // body: { adminId }
@@ -10,8 +11,10 @@ export async function POST(
 ) {
   try {
     const { id } = await params;
-    const body = await req.json().catch(() => ({}));
-    const { adminId } = body as { adminId?: string };
+    const body = await req.json().catch(() => null);
+    const [data, parseErr] = parseBody(adminActionSchema, body);
+    if (parseErr) return errorResponse(parseErr);
+    const { adminId } = data!;
 
     const { user: admin, error } = await getActorById(adminId, {
       requireAdmin: true,

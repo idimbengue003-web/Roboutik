@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { parseBody, errorResponse, orderMessageSchema } from "@/lib/validation";
+import { sanitizeMessage } from "@/lib/sanitize";
 
 // POST /api/orders/[id]/messages  - buyer sends a message
 // body: { content }
@@ -10,12 +12,10 @@ export async function POST(
 ) {
   try {
     const { id } = await params;
-    const body = await req.json();
-    const { content } = body as { content?: string };
-
-    if (!content || !content.trim()) {
-      return NextResponse.json({ error: "Message vide" }, { status: 400 });
-    }
+    const body = await req.json().catch(() => null);
+    const [data, error] = parseBody(orderMessageSchema, body);
+    if (error) return errorResponse(error);
+    const content = sanitizeMessage(data!.content);
 
     const order = await db.order.findUnique({
       where: { id },
@@ -35,7 +35,7 @@ export async function POST(
       data: {
         orderId: order.id,
         senderId: order.buyerId,
-        content: content.trim(),
+        content,
         isAuto: false,
       },
     });

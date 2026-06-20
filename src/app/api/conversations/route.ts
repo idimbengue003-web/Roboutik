@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getActorById, errorResponse } from "@/lib/security";
 import { sendNotification, buildEmailHtml } from "@/lib/notifications";
+import { parseBody, createConversationSchema } from "@/lib/validation";
+import { sanitizeMessage } from "@/lib/sanitize";
 
 // GET /api/conversations?userId=...
 // Returns all conversations where user is buyer OR seller
@@ -37,26 +39,11 @@ export async function GET(req: NextRequest) {
 // + notifies the seller via email/WhatsApp
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json();
-    const { userId, listingId, firstMessage } = body as {
-      userId?: string;
-      listingId?: string;
-      firstMessage?: string;
-    };
-
-    if (!userId || !listingId || !firstMessage?.trim()) {
-      return NextResponse.json(
-        { error: "userId, listingId, firstMessage requis" },
-        { status: 400 }
-      );
-    }
-
-    if (firstMessage.trim().length > 1000) {
-      return NextResponse.json(
-        { error: "Message trop long (max 1000 caractères)" },
-        { status: 400 }
-      );
-    }
+    const body = await req.json().catch(() => null);
+    const [data, parseErr] = parseBody(createConversationSchema, body);
+    if (parseErr) return errorResponse(parseErr);
+    const { userId, listingId } = data!;
+    const firstMessage = sanitizeMessage(data!.firstMessage);
 
     const { user: buyer, error } = await getActorById(userId);
     if (error) return errorResponse(error);
@@ -122,7 +109,7 @@ export async function POST(req: NextRequest) {
       data: {
         conversationId: conversation.id,
         senderId: buyer!.id,
-        content: firstMessage.trim(),
+        content: firstMessage,
         isAuto: false,
       },
     });
@@ -145,7 +132,7 @@ export async function POST(req: NextRequest) {
            <span style="color:#64748b;">${listing.game?.name} · ${listing.price} FCFA</span>
          </p>
          <p style="background:#fef3c7; padding:12px; border-radius:8px; border-left:3px solid #f59e0b;">
-           ${firstMessage.trim().replace(/\n/g, "<br>")}
+           ${firstMessage.replace(/\n/g, "<br>")}
          </p>
          <p style="margin-top:16px;">Connecte-toi à Roboutik pour répondre à ${buyer!.username}.</p>`
       ),

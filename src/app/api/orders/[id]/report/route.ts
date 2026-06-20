@@ -3,6 +3,9 @@ import { db } from "@/lib/db";
 import { getActorById, errorResponse } from "@/lib/security";
 import { sendNotification, buildEmailHtml } from "@/lib/notifications";
 import { classifyMessage } from "@/lib/support-bot";
+import { parseBody, reportSellerSchema } from "@/lib/validation";
+import { sanitizeMessage } from "@/lib/sanitize";
+import { maybeAutoBanSeller, AUTO_BAN_THRESHOLD } from "@/lib/auto-ban";
 
 // POST /api/orders/[id]/report
 // body: { userId, reason, details }
@@ -13,19 +16,12 @@ export async function POST(
 ) {
   try {
     const { id } = await params;
-    const body = await req.json();
-    const { userId, reason, details } = body as {
-      userId?: string;
-      reason?: string;
-      details?: string;
-    };
-
-    if (!userId || !reason?.trim()) {
-      return NextResponse.json(
-        { error: "userId et reason requis" },
-        { status: 400 }
-      );
-    }
+    const body = await req.json().catch(() => null);
+    const [data, parseErr] = parseBody(reportSellerSchema, body);
+    if (parseErr) return errorResponse(parseErr);
+    const { userId } = data!;
+    const reason = sanitizeMessage(data!.reason);
+    const details = data!.details ? sanitizeMessage(data!.details) : "";
 
     const { user: reporter, error } = await getActorById(userId);
     if (error) return errorResponse(error);
@@ -46,7 +42,7 @@ export async function POST(
       );
     }
 
-    const fullReason = `${reason.trim()}${details?.trim() ? ` — ${details.trim()}` : ""}`;
+    const fullReason = `${reason}${details ? ` — ${details}` : ""}`;
 
     // Classify (will be URGENT because we include "arnaque" / "fraude" keyword in subject)
     const bot = classifyMessage(`signaler vendeur arnaque ${fullReason}`);
@@ -70,7 +66,7 @@ export async function POST(
           ticketId: t.id,
           senderId: reporter!.id,
           senderRole: "USER",
-          content: `🚨 SIGNALEMENT DE VENDEUR\n\nVendeur signalé : ${order.seller?.username} (${order.seller?.email})\nCommande : ${order.listing?.title} — ${order.listing?.game?.name}\nMontant : ${order.amount} FCFA\nStatut commande : ${order.status}\n\nMotif : ${reason.trim()}\n${details?.trim() ? `Détails : ${details.trim()}` : ""}`,
+          content: `🚨 SIGNALEMENT DE VENDEUR\n\nVendeur signalé : ${order.seller?.username} (${order.seller?.email})\nCommande : ${order.listing?.title} — ${order.listing?.game?.name}\nMontant : ${order.amount} FCFA\nStatut commande : ${order.status}\n\nMotif : ${reason}\n${details ? `Détails : ${details}` : ""}`,
           isAuto: false,
         },
       });
@@ -106,8 +102,8 @@ export async function POST(
                <strong>Montant :</strong> ${order.amount} FCFA<br>
                <strong>Statut :</strong> ${order.status}
              </p>
-             <p><strong>Motif :</strong> ${reason.trim()}</p>
-             ${details?.trim() ? `<p><strong>Détails :</strong> ${details.trim()}</p>` : ""}
+             <p><strong>Motif :</strong> ${reason}</p>
+             ${details ? `<p><strong>Détails :</strong> ${details}</p>` : ""}
              <p style="margin-top:16px;">Connecte-toi au panel admin → onglet Support pour traiter ce ticket.</p>`
           ),
           whatsappBody: `🚨 Roboutik : signalement URGENT de ${order.seller?.username} par ${reporter!.username}. Va sur le panel admin pour traiter.`,
@@ -117,7 +113,36 @@ export async function POST(
       )
     );
 
-    return NextResponse.json({ ticket, ok: true });
+    // Check for auto-ban: if seller has 3+ confirmed reports, ban them automatically
+    let autoBanned = false;
+    if (order.sellerId) {
+      const result = await maybeAutoBanSeller(order.sellerId);
+      autoBanned = result.banned;
+      if (autoBanned) {
+        // Notify all admins that seller was auto-banned
+        await Promise.all(
+          admins.map((admin) =>
+            sendNotification({
+              userId: admin.id,
+              type: "USER_BANNED",
+              subject: `🤖 Auto-ban : ${order.seller?.username} (${AUTO_BAN_THRESHOLD}+ signalements)`,
+              body: buildEmailHtml(
+                "Vendeur auto-banni",
+                `<p>🤖 <strong>Auto-ban déclenché</strong> pour <strong>${order.seller?.username}</strong>.</p>
+                 <p>Le vendeur a atteint le seuil de ${AUTO_BAN_THRESHOLD} signalements confirmés.
+                 Il est désormais banni et ne peut plus vendre ni retirer tant qu'un admin ne le débannit pas.</p>
+                 <p style="margin-top:16px;">Vérifie les signalements dans le panel admin → Support. Si le vendeur a fait appel, examine son cas.</p>`
+              ),
+              whatsappBody: `🤖 Roboutik : ${order.seller?.username} a été auto-banni (${AUTO_BAN_THRESHOLD}+ signalements). Vérifie le panel admin.`,
+              refType: "TICKET",
+              refId: ticket.id,
+            })
+          )
+        );
+      }
+    }
+
+    return NextResponse.json({ ticket, ok: true, autoBanned });
   } catch (e) {
     console.error("Report seller error:", e);
     return NextResponse.json(

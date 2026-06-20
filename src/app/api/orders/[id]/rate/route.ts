@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { parseBody, errorResponse, rateOrderSchema } from "@/lib/validation";
+import { sanitizeMessage } from "@/lib/sanitize";
 
 // POST /api/orders/[id]/rate  - buyer rates the seller after validation
 // body: { stars: 1-5, comment?, userId }
@@ -9,20 +11,11 @@ export async function POST(
 ) {
   try {
     const { id } = await params;
-    const body = await req.json();
-    const { stars, comment, userId } = body as {
-      stars?: number;
-      comment?: string;
-      userId?: string;
-    };
-
-    if (!userId) {
-      return NextResponse.json({ error: "userId required" }, { status: 400 });
-    }
-
-    if (!stars || stars < 1 || stars > 5) {
-      return NextResponse.json({ error: "Note entre 1 et 5 étoiles" }, { status: 400 });
-    }
+    const body = await req.json().catch(() => null);
+    const [data, error] = parseBody(rateOrderSchema, body);
+    if (error) return errorResponse(error);
+    const { stars, userId } = data!;
+    const comment = data!.comment ? sanitizeMessage(data!.comment) : "";
 
     const order = await db.order.findUnique({
       where: { id },
@@ -49,7 +42,7 @@ export async function POST(
     if (existing) {
       const updated = await db.rating.update({
         where: { id: existing.id },
-        data: { stars, comment: comment?.trim() || null },
+        data: { stars, comment: comment || null },
       });
       return NextResponse.json({ rating: updated });
     }
@@ -61,7 +54,7 @@ export async function POST(
         fromUserId: order.buyerId,
         toUserId: order.sellerId,
         stars,
-        comment: comment?.trim() || null,
+        comment: comment || null,
       },
     });
 

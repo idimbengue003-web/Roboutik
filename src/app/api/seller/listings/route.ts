@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { parseBody, errorResponse, createListingSchema } from "@/lib/validation";
+import { sanitizePlainText } from "@/lib/sanitize";
 
 // GET /api/seller/listings?userId=...
 export async function GET(req: NextRequest) {
@@ -21,53 +23,12 @@ export async function GET(req: NextRequest) {
 // The buyer price (price) is automatically computed = sellerNetPrice * 1.2 (20% commission)
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json();
-    const { userId, gameId, title, description, sellerNetPrice } = body as {
-      userId?: string;
-      gameId?: string;
-      title?: string;
-      description?: string;
-      sellerNetPrice?: number;
-    };
-
-    if (!userId || !gameId || !title || !description || !sellerNetPrice) {
-      return NextResponse.json(
-        { error: "Tous les champs sont requis" },
-        { status: 400 }
-      );
-    }
-
-    // ANTI-FRAUD: validate sellerNetPrice type and bounds
-    if (
-      typeof sellerNetPrice !== "number" ||
-      !Number.isFinite(sellerNetPrice) ||
-      !Number.isInteger(sellerNetPrice)
-    ) {
-      return NextResponse.json(
-        { error: "Prix invalide" },
-        { status: 400 }
-      );
-    }
-    if (sellerNetPrice < 100 || sellerNetPrice > 1_000_000) {
-      return NextResponse.json(
-        { error: "Prix net entre 100 et 1 000 000 FCFA" },
-        { status: 400 }
-      );
-    }
-
-    // ANTI-FRAUD: validate title/description length
-    if (title.trim().length < 5 || title.trim().length > 80) {
-      return NextResponse.json(
-        { error: "Titre entre 5 et 80 caractères" },
-        { status: 400 }
-      );
-    }
-    if (description.trim().length < 10 || description.trim().length > 500) {
-      return NextResponse.json(
-        { error: "Description entre 10 et 500 caractères" },
-        { status: 400 }
-      );
-    }
+    const body = await req.json().catch(() => null);
+    const [data, error] = parseBody(createListingSchema, body);
+    if (error) return errorResponse(error);
+    const { userId, gameId, sellerNetPrice } = data!;
+    const title = sanitizePlainText(data!.title);
+    const description = sanitizePlainText(data!.description);
 
     const user = await db.user.findUnique({ where: { id: userId } });
     if (!user) {
@@ -108,8 +69,8 @@ export async function POST(req: NextRequest) {
       data: {
         sellerId: userId,
         gameId,
-        title: title.trim(),
-        description: description.trim(),
+        title,
+        description,
         sellerNetPrice,
         price: buyerPrice,
         active: true,

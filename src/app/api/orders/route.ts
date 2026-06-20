@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { parseBody, errorResponse, createOrderSchema } from "@/lib/validation";
 
 // GET /api/orders?buyerId=...    or  ?sellerId=...
 export async function GET(req: NextRequest) {
@@ -76,12 +77,10 @@ export async function GET(req: NextRequest) {
 // body: { listingId, buyerId }
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json();
-    const { listingId, buyerId } = body as { listingId?: string; buyerId?: string };
-
-    if (!listingId || !buyerId) {
-      return NextResponse.json({ error: "listingId and buyerId required" }, { status: 400 });
-    }
+    const body = await req.json().catch(() => null);
+    const [data, error] = parseBody(createOrderSchema, body);
+    if (error) return errorResponse(error);
+    const { listingId, buyerId } = data!;
 
     const buyer = await db.user.findUnique({ where: { id: buyerId } });
     if (!buyer) {

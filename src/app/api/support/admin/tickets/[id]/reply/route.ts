@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getActorById, errorResponse, logAdminAction } from "@/lib/security";
+import { parseBody, adminReplySchema } from "@/lib/validation";
+import { sanitizeMessage } from "@/lib/sanitize";
 
 // POST /api/support/admin/tickets/[id]/reply
 // body: { adminId, content, resolve? }
@@ -10,19 +12,11 @@ export async function POST(
 ) {
   try {
     const { id } = await params;
-    const body = await req.json();
-    const { adminId, content, resolve } = body as {
-      adminId?: string;
-      content?: string;
-      resolve?: boolean;
-    };
-
-    if (!adminId || !content?.trim()) {
-      return NextResponse.json(
-        { error: "adminId et content requis" },
-        { status: 400 }
-      );
-    }
+    const body = await req.json().catch(() => null);
+    const [data, parseErr] = parseBody(adminReplySchema, body);
+    if (parseErr) return errorResponse(parseErr);
+    const { adminId, resolve } = data!;
+    const content = sanitizeMessage(data!.content);
 
     const { user: admin, error } = await getActorById(adminId, {
       requireAdmin: true,
@@ -40,7 +34,7 @@ export async function POST(
           ticketId: id,
           senderId: admin!.id,
           senderRole: "ADMIN",
-          content: content.trim(),
+          content,
           isAuto: false,
         },
       }),

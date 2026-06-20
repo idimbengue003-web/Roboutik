@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { buildWaveCheckoutUrl } from "@/lib/wave-config";
+import { parseBody, errorResponse, payOrderSchema } from "@/lib/validation";
+import { sanitizePhone } from "@/lib/sanitize";
 
 /**
  * POST /api/orders/[id]/pay
@@ -19,12 +21,11 @@ export async function POST(
 ) {
   try {
     const { id } = await params;
-    const body = await req.json().catch(() => ({}));
-    const { userId, wavePhone } = body as { userId?: string; wavePhone?: string };
-
-    if (!userId) {
-      return NextResponse.json({ error: "userId requis" }, { status: 400 });
-    }
+    const body = await req.json().catch(() => null);
+    const [data, error] = parseBody(payOrderSchema, body);
+    if (error) return errorResponse(error);
+    const { userId, wavePhone } = data!;
+    const sanitizedWavePhone = wavePhone ? sanitizePhone(wavePhone) : "";
 
     const buyer = await db.user.findUnique({ where: { id: userId } });
     if (!buyer) {
@@ -68,12 +69,12 @@ export async function POST(
     });
 
     // Save the buyer's Wave phone as a message if provided (so seller can reach them)
-    if (wavePhone && wavePhone.trim()) {
+    if (sanitizedWavePhone) {
       // Only save if not already present
       const existing = await db.message.findFirst({
         where: {
           orderId: order.id,
-          content: { contains: wavePhone.trim() },
+          content: { contains: sanitizedWavePhone },
         },
       });
       if (!existing) {
@@ -81,7 +82,7 @@ export async function POST(
           data: {
             orderId: order.id,
             senderId: buyer.id,
-            content: `📞 Mon numéro Wave : ${wavePhone.trim()}`,
+            content: `📞 Mon numéro Wave : ${sanitizedWavePhone}`,
             isAuto: false,
           },
         });

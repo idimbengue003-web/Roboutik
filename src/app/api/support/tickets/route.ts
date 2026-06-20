@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getActorById, errorResponse } from "@/lib/security";
 import { classifyMessage } from "@/lib/support-bot";
+import { parseBody, createTicketSchema } from "@/lib/validation";
+import { sanitizeMessage } from "@/lib/sanitize";
 
 // GET /api/support/tickets?userId=...
 export async function GET(req: NextRequest) {
@@ -27,20 +29,12 @@ export async function GET(req: NextRequest) {
 // body: { userId, subject, message, orderId? }
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json();
-    const { userId, subject, message, orderId } = body as {
-      userId?: string;
-      subject?: string;
-      message?: string;
-      orderId?: string;
-    };
-
-    if (!userId || !subject?.trim() || !message?.trim()) {
-      return NextResponse.json(
-        { error: "userId, subject et message requis" },
-        { status: 400 }
-      );
-    }
+    const body = await req.json().catch(() => null);
+    const [data, parseErr] = parseBody(createTicketSchema, body);
+    if (parseErr) return errorResponse(parseErr);
+    const { userId, orderId } = data!;
+    const subject = sanitizeMessage(data!.subject);
+    const message = sanitizeMessage(data!.message);
 
     const { user, error } = await getActorById(userId);
     if (error) return errorResponse(error);
@@ -53,7 +47,7 @@ export async function POST(req: NextRequest) {
       const t = await tx.supportTicket.create({
         data: {
           openerId: user!.id,
-          subject: subject.trim().slice(0, 200),
+          subject: subject.slice(0, 200),
           category: bot.category,
           priority: bot.priority,
           orderId: orderId || null,
@@ -66,7 +60,7 @@ export async function POST(req: NextRequest) {
           ticketId: t.id,
           senderId: user!.id,
           senderRole: "USER",
-          content: message.trim(),
+          content: message,
           isAuto: false,
         },
       });

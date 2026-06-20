@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getActorById, errorResponse, logAdminAction } from "@/lib/security";
+import { parseBody, banUserSchema } from "@/lib/validation";
+import { sanitizeMessage } from "@/lib/sanitize";
 
 // POST /api/admin/users/[id]/ban
 // body: { adminId, reason }
@@ -10,8 +12,11 @@ export async function POST(
 ) {
   try {
     const { id } = await params;
-    const body = await req.json().catch(() => ({}));
-    const { adminId, reason } = body as { adminId?: string; reason?: string };
+    const body = await req.json().catch(() => null);
+    const [data, parseErr] = parseBody(banUserSchema, body);
+    if (parseErr) return errorResponse(parseErr);
+    const { adminId } = data!;
+    const reason = data!.reason ? sanitizeMessage(data!.reason) : "";
 
     const { user: admin, error } = await getActorById(adminId, {
       requireAdmin: true,
@@ -52,7 +57,7 @@ export async function POST(
       data: {
         isBanned: true,
         bannedAt: new Date(),
-        banReason: reason?.trim() || null,
+        banReason: reason || null,
       },
     });
 
@@ -60,7 +65,7 @@ export async function POST(
       actorId: admin!.id,
       targetId: id,
       action: "BAN_USER",
-      metadata: { reason: reason ?? null },
+      metadata: { reason: reason || null },
     });
 
     return NextResponse.json({ ok: true });
