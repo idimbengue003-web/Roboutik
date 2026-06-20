@@ -352,9 +352,20 @@ function parseEntry(entry: HistoryEntry): WaveTransaction {
   const senderName = entry.customerName ?? entry.senderName ?? undefined;
   const senderPhone = entry.customerMobile ?? entry.senderMobile ?? undefined;
 
+  // Parse amount: Wave returns strings like "CFA 1300" or "CFA -2500"
+  // Strip everything except digits, sign, and decimal point
+  const rawAmount = String(entry.amount ?? "0");
+  const amountMatch = rawAmount.match(/-?[\d.,]+/);
+  let amount = 0;
+  if (amountMatch) {
+    // Remove thousand separators (.,) and parse as number
+    const cleaned = amountMatch[0].replace(/[.,]/g, "");
+    amount = Math.abs(parseInt(cleaned, 10) || 0);
+  }
+
   return {
     id: entry.id,
-    amount: Math.abs(Number(entry.amount) || 0),
+    amount,
     currency: "XOF",
     type,
     status,
