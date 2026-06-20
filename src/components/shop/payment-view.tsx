@@ -116,40 +116,80 @@ export function PaymentView() {
   }
 
   // Poll for payment confirmation
+  // Uses recursive setTimeout (not setInterval) so we can adapt the interval
+  // based on the server's suggested pollIntervalMs (backoff).
+  // Stops automatically after 10 minutes (MAX_POLL_MINUTES on the server).
   useEffect(() => {
     if (state.kind !== "waiting" || !me) return;
     setWaitingSeconds(0);
 
     const startTime = Date.now();
-    const interval = setInterval(async () => {
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+    let stopped = false;
+
+    const poll = async () => {
+      if (stopped) return;
+
       setWaitingSeconds(Math.floor((Date.now() - startTime) / 1000));
+
       try {
         const r = await fetch(
           `/api/orders/${state.orderId}/poll?userId=${me.id}`
         );
         if (!r.ok) return;
         const d = await r.json();
+
         if (d.status === "PAID") {
-          clearInterval(interval);
+          stopped = true;
           setState({ kind: "confirmed", orderId: state.orderId });
           bumpOrders();
           toast({
             title: "Paiement confirmé 🎉",
             description: `${formatFCFA(d.waveTransaction?.amount ?? 0)} reçu sur Wave.`,
           });
-        } else if (d.status === "DELIVERED" || d.status === "VALIDATED") {
-          clearInterval(interval);
-          // Already past PAID state — open chat
+          return;
+        }
+
+        if (d.status === "DELIVERED" || d.status === "VALIDATED") {
+          stopped = true;
           setActiveOrderId(state.orderId);
           setActiveTab("orders");
           setPendingListingId(null);
+          return;
         }
-      } catch {
-        /* noop */
-      }
-    }, 3000);
 
-    return () => clearInterval(interval);
+        if (d.status === "TIMEOUT" || d.shouldStopPolling) {
+          stopped = true;
+          setState({
+            kind: "error",
+            message: d.message || "Délai de paiement dépassé. Si tu as payé, contacte le support.",
+          });
+          toast({
+            title: "Délai dépassé ⏰",
+            description: "Si tu as payé, contacte le support avec ta preuve de paiement.",
+            variant: "destructive",
+          });
+          return;
+        }
+
+        // Still pending — schedule next poll with server-suggested interval
+        // (backoff: 3s → 5s → 10s as time passes)
+        const nextDelay = d.pollIntervalMs || 3000;
+        timeoutId = setTimeout(poll, nextDelay);
+      } catch {
+        // Network error — retry after 5s (don't spam)
+        timeoutId = setTimeout(poll, 5000);
+      }
+    };
+
+    // Start polling immediately (first call)
+    timeoutId = setTimeout(poll, 1000);
+
+    // Cleanup on unmount (buyer closes the page or navigates away)
+    return () => {
+      stopped = true;
+      if (timeoutId) clearTimeout(timeoutId);
+    };
   }, [state, me, bumpOrders, toast, setActiveOrderId, setActiveTab, setPendingListingId]);
 
   function close() {
@@ -289,9 +329,17 @@ export function PaymentView() {
                     {Math.floor(waitingSeconds / 60)}:
                     {String(waitingSeconds % 60).padStart(2, "0")}
                   </p>
+                  <p className="text-[10px] text-slate-400 mt-1">
+                    / 10:00 max
+                  </p>
                 </div>
                 <p className="text-[11px] text-slate-400 max-w-xs">
                   ⚡ Détection automatique en moins de 10 secondes après ton paiement.
+                  {waitingSeconds < 120
+                    ? " Vérification toutes les 3s..."
+                    : waitingSeconds < 300
+                    ? " Vérification toutes les 5s..."
+                    : " Vérification toutes les 10s..."}
                 </p>
                 <Button
                   variant="ghost"

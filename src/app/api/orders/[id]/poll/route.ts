@@ -6,18 +6,25 @@ import { isWaveScraperConfigured } from "@/lib/wave-config";
 /**
  * GET /api/orders/[id]/poll?userId=...
  *
- * Frontend polls this endpoint every ~3s after the buyer has been
- * redirected to Wave checkout. The endpoint:
+ * Frontend polls this endpoint after the buyer has been redirected to
+ * Wave checkout. The endpoint:
  *  1. Scrapes Wave Business GraphQL for an incoming transaction
  *     matching the order amount, since the order creation time.
  *  2. If found: marks the order as PAID, sends an auto-message
  *     from the seller, returns { status: "PAID" } so the frontend
  *     can redirect to the chat.
- *  3. If not found: returns { status: "PENDING" } so the frontend
- *     keeps polling.
+ *  3. If not found: returns { status: "PENDING" } + suggested next
+ *     poll interval (backoff) so the frontend keeps polling.
  *
- * This achieves < 10s detection as requested by the user.
+ * ANTI-ABUSE: refuses to scrape if the order is older than MAX_POLL_MINUTES
+ * (default 10 min). This prevents:
+ *  - Endless scraping if the buyer abandons the page
+ *  - Looking suspicious to Wave (too many GraphQL queries)
+ * The frontend also stops polling after this timeout.
  */
+const MAX_POLL_MINUTES = 10;
+const MAX_POLL_MS = MAX_POLL_MINUTES * 60 * 1000;
+
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -47,7 +54,18 @@ export async function GET(
       return NextResponse.json({
         status: order.status,
         orderId: order.id,
-        chatUrl: "/",
+      });
+    }
+
+    // ANTI-ABUSE: refuse to scrape if order is too old
+    // (prevents endless polling + looks natural to Wave)
+    const orderAgeMs = Date.now() - order.createdAt.getTime();
+    if (orderAgeMs > MAX_POLL_MS) {
+      return NextResponse.json({
+        status: "TIMEOUT",
+        orderId: order.id,
+        message: `Délai de ${MAX_POLL_MINUTES} minutes dépassé. Ta commande a été annulée. Si tu as payé, contacte le support.`,
+        shouldStopPolling: true,
       });
     }
 
@@ -55,19 +73,30 @@ export async function GET(
     if (!isWaveScraperConfigured()) {
       return NextResponse.json({
         status: "PENDING",
-        message: "Wave scraper not configured. Set WAVE_BUSINESS_SESSION + WAVE_BUSINESS_ACCOUNT_ID.",
         orderId: order.id,
+        pollIntervalMs: 5000,
+        message: "Wave scraper not configured.",
       });
     }
 
-    // Use createdAt as the "since" time (the buyer can only have paid after creating the order)
+    // Use createdAt as the "since" time
     const since = order.createdAt;
     const match = await findWavePaymentByAmount(order.amount, since);
 
     if (!match) {
+      // Suggest next poll interval based on order age (backoff)
+      // First 2 min: poll every 3s (fast detection)
+      // 2-5 min: poll every 5s
+      // 5-10 min: poll every 10s
+      let pollIntervalMs = 3000;
+      if (orderAgeMs > 5 * 60 * 1000) pollIntervalMs = 10000;
+      else if (orderAgeMs > 2 * 60 * 1000) pollIntervalMs = 5000;
+
       return NextResponse.json({
         status: "PENDING",
         orderId: order.id,
+        pollIntervalMs,
+        remainingMs: MAX_POLL_MS - orderAgeMs,
       });
     }
 
@@ -79,7 +108,6 @@ export async function GET(
         data: {
           status: "PAID",
           paidAt: now,
-          // Reset autoValidateAt to 24h from now
           autoValidateAt: new Date(now.getTime() + 24 * 60 * 60 * 1000),
         },
       }),
