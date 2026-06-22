@@ -4,7 +4,7 @@ import { useAppStore } from "@/lib/store";
 import { Button } from "@/components/ui/button";
 import { Gamepad2, ShoppingBag, Zap, ShieldCheck, MessageCircle, Star } from "lucide-react";
 import type { Game, Listing } from "@/lib/types";
-import { formatFCFA } from "@/lib/types";
+import { formatFCFA, getListingImages } from "@/lib/types";
 import { useEffect, useState } from "react";
 import { RatingBadge } from "./rating-modal";
 
@@ -217,15 +217,34 @@ function ListingMiniCard({
   listing: Listing;
   onBuy: () => void;
 }) {
+  const images = getListingImages(listing);
+  const firstImage = images[0];
+
   return (
     <div className="flex flex-col rounded-2xl border bg-white shadow-sm overflow-hidden">
-      <div className="aspect-video bg-gradient-to-br from-fuchsia-100 to-orange-100 grid place-items-center p-3">
-        <div className="text-center">
-          <p className="text-2xl">🎮</p>
-          <p className="text-xs text-slate-500 mt-1 font-medium line-clamp-2">
-            {listing.game?.name}
-          </p>
-        </div>
+      <div className="aspect-video relative overflow-hidden">
+        {firstImage ? (
+          <img
+            src={firstImage}
+            alt={listing.title}
+            className="size-full object-cover"
+          />
+        ) : (
+          <div className="size-full bg-gradient-to-br from-fuchsia-100 to-orange-100 grid place-items-center p-3">
+            <div className="text-center">
+              <p className="text-2xl">🎮</p>
+              <p className="text-xs text-slate-500 mt-1 font-medium line-clamp-2">
+                {listing.game?.name}
+              </p>
+            </div>
+          </div>
+        )}
+        {/* Photo count badge */}
+        {images.length > 1 && (
+          <span className="absolute bottom-1 right-1 rounded-full bg-black/60 text-white text-[9px] font-bold px-1.5 py-0.5">
+            📷 {images.length}
+          </span>
+        )}
       </div>
       <div className="flex flex-1 flex-col p-3">
         <h3 className="font-bold text-slate-900 text-sm line-clamp-1">

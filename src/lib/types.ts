@@ -105,7 +105,8 @@ export type Listing = {
   sellerNetPrice: number;
   // price: amount the buyer pays (incl. 20% commission, = sellerNetPrice * 1.2)
   price: number;
-  image: string | null;
+  // images: JSON string array of base64 data URLs (max 4)
+  images: string | null;
   active: boolean;
   createdAt: string;
   sellerId: string;
@@ -198,6 +199,25 @@ export const STATUS_COLOR: Record<OrderStatus, string> = {
 
 export function formatFCFA(n: number): string {
   return new Intl.NumberFormat("fr-FR").format(n) + " FCFA";
+}
+
+/**
+ * Parse the images JSON string from a Listing into an array of data URLs.
+ * Returns empty array if no images.
+ */
+export function getListingImages(listing: { images: string | null }): string[] {
+  if (!listing.images) return [];
+  try {
+    const parsed = JSON.parse(listing.images);
+    if (Array.isArray(parsed)) {
+      return parsed.filter(
+        (item) => typeof item === "string" && item.startsWith("data:image/")
+      );
+    }
+  } catch {
+    /* invalid JSON */
+  }
+  return [];
 }
 
 export function formatCountdown(ms: number): string {

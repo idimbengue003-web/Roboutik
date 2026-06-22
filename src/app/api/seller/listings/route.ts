@@ -77,6 +77,27 @@ export async function POST(req: NextRequest) {
     const buyerPrice = Math.round(sellerNetPrice * 1.2);
     const commission = buyerPrice - sellerNetPrice;
 
+    // Extract images (JSON string of base64 data URLs array)
+    const rawImages = (body as Record<string, unknown>)?.images;
+    let imagesJson: string | null = null;
+    if (typeof rawImages === "string" && rawImages.length > 0) {
+      // Validate it's a valid JSON array of strings, max 4 items
+      try {
+        const parsed = JSON.parse(rawImages);
+        if (Array.isArray(parsed) && parsed.length <= 4) {
+          // Each item must be a data URL (starts with "data:image/")
+          const valid = parsed.filter(
+            (item) => typeof item === "string" && item.startsWith("data:image/")
+          );
+          if (valid.length > 0) {
+            imagesJson = JSON.stringify(valid.slice(0, 4));
+          }
+        }
+      } catch {
+        // Invalid JSON — ignore images
+      }
+    }
+
     const listing = await db.listing.create({
       data: {
         sellerId: userId,
@@ -85,6 +106,7 @@ export async function POST(req: NextRequest) {
         description,
         sellerNetPrice,
         price: buyerPrice,
+        images: imagesJson,
         active: true,
       },
       include: { game: true, seller: true },

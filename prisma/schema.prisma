@@ -75,7 +75,9 @@ model Listing {
   description String
   price       Int // price displayed to buyer (includes 20% commission)
   sellerNetPrice Int // amount the seller actually receives after commission
-  image       String?
+  // images: JSON array of base64 data URLs (max 4 images, max 500KB each)
+  // Format: ["data:image/webp;base64,...", "data:image/webp;base64,..."]
+  images      String?  // JSON string array
   active      Boolean  @default(true)
   createdAt   DateTime @default(now())
 

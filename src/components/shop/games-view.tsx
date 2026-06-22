@@ -4,7 +4,7 @@ import { useAppStore } from "@/lib/store";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Store, ChevronRight, MessageCircle, Flag } from "lucide-react";
 import type { Listing } from "@/lib/types";
-import { formatFCFA } from "@/lib/types";
+import { formatFCFA, getListingImages } from "@/lib/types";
 import { useEffect, useState, useCallback } from "react";
 import { ListingSearch, emptyFilter, type FilterState } from "./search-and-rating";
 import { RatingBadge } from "./rating-modal";
@@ -212,16 +212,37 @@ function ListingCard({
   onContact: () => void;
   onReport: () => void;
 }) {
+  const images = getListingImages(listing);
+  const firstImage = images[0];
+
   return (
     <div className="flex flex-col rounded-2xl border bg-white shadow-sm overflow-hidden hover:shadow-md transition-shadow">
-      <div className="aspect-video bg-gradient-to-br from-fuchsia-100 via-rose-50 to-orange-100 grid place-items-center p-4 relative">
-        <span className="text-4xl">🎮</span>
+      {/* Image area: show first uploaded photo, or fallback gradient + emoji */}
+      <div className="aspect-video relative overflow-hidden">
+        {firstImage ? (
+          <img
+            src={firstImage}
+            alt={listing.title}
+            className="size-full object-cover"
+          />
+        ) : (
+          <div className="size-full bg-gradient-to-br from-fuchsia-100 via-rose-50 to-orange-100 grid place-items-center p-4">
+            <span className="text-4xl">🎮</span>
+          </div>
+        )}
+        {/* Game badge (top-left) */}
         {listing.game && (
           <span className="absolute top-2 left-2 rounded-full bg-white/90 px-2 py-0.5 text-[10px] font-bold text-slate-600">
             {listing.game.name}
           </span>
         )}
-        {/* Discreet report button in the top-right corner */}
+        {/* Photo count badge (bottom-right) if multiple images */}
+        {images.length > 1 && (
+          <span className="absolute bottom-2 right-2 rounded-full bg-black/60 text-white text-[10px] font-bold px-1.5 py-0.5 flex items-center gap-1">
+            📷 {images.length}
+          </span>
+        )}
+        {/* Discreet report button (top-right) */}
         <button
           onClick={(e) => {
             e.stopPropagation();

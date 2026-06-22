@@ -3,6 +3,7 @@
 import { useAppStore } from "@/lib/store";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { ImageUpload } from "@/components/shop/image-upload";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -570,6 +571,7 @@ function CreateListingDialog({
   const [description, setDescription] = useState("");
   const [sellerNetPrice, setSellerNetPrice] = useState("");
   const [gameId, setGameId] = useState("");
+  const [images, setImages] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
 
   function reset() {
@@ -577,6 +579,7 @@ function CreateListingDialog({
     setDescription("");
     setSellerNetPrice("");
     setGameId("");
+    setImages([]);
   }
 
   // Compute buyer price and commission in real-time
@@ -604,6 +607,7 @@ function CreateListingDialog({
           title: title.trim(),
           description: description.trim(),
           sellerNetPrice: Number(sellerNetPrice),
+          images: images.length > 0 ? JSON.stringify(images) : null,
         }),
       });
       if (!r.ok) {
@@ -650,6 +654,20 @@ function CreateListingDialog({
               ))}
             </select>
           </div>
+
+          {/* Image upload (Leboncoin-style) */}
+          <div>
+            <Label className="text-sm font-semibold flex items-center gap-1.5">
+              📸 Photos
+              <span className="text-[10px] font-medium text-slate-500 bg-slate-200 rounded-full px-2 py-0.5">
+                optionnel mais recommandé
+              </span>
+            </Label>
+            <div className="mt-2">
+              <ImageUpload images={images} onChange={setImages} />
+            </div>
+          </div>
+
           <div>
             <Label className="text-sm font-semibold">Titre</Label>
             <Input
