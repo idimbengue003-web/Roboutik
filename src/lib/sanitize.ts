@@ -1,52 +1,36 @@
 /**
  * Sanitize user-generated content to prevent XSS attacks.
  *
- * Used on:
- *  - Order messages (chat between buyer and seller)
- *  - Conversation messages (pre-sale chat)
- *  - Support ticket messages
- *  - Listing title/description
- *  - User profile (username, avatar)
- *  - Withdrawal waveNumber
+ * Uses simple regex-based sanitization (no DOMPurify/jsdom dependency
+ * which doesn't work on Vercel serverless).
  *
- * Strategy: strip all HTML tags + dangerous characters.
- * The result is plain text safe to render in React (which already escapes
- * text content, but extra defense in depth is good).
+ * React already escapes text content by default, so this is extra
+ * defense in depth.
  */
 
-import DOMPurify from "isomorphic-dompurify";
-
 /**
- * Strip ALL HTML from a string. Returns plain text only.
- * Use this for fields that should NEVER contain HTML (titles, names, etc.)
+ * Strip ALL HTML tags from a string. Returns plain text only.
  */
 export function sanitizePlainText(input: string): string {
   if (!input) return "";
-  // DOMPurify with ALLOWED_TAGS: [] strips everything
-  const cleaned = DOMPurify.sanitize(input, {
-    ALLOWED_TAGS: [],
-    ALLOWED_ATTR: [],
-    KEEP_CONTENT: true,
-  });
-  // Also trim and limit length defensively
-  return cleaned.trim();
+  // Remove HTML tags
+  const cleaned = input
+    .replace(/<[^>]*>/g, "")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&amp;/g, "&")
+    .replace(/&quot;/g, '"')
+    .replace(/&#x27;/g, "'")
+    .replace(/&#39;/g, "'")
+    .trim();
+  return cleaned;
 }
 
 /**
- * Sanitize content that may contain basic formatting (line breaks, bold, italic).
- * Returns sanitized HTML safe to render with dangerouslySetInnerHTML.
- * Currently we don't allow any HTML in our app, so this is just plain text
- * with line breaks preserved.
+ * Sanitize message content (same as plain text — no HTML allowed).
  */
 export function sanitizeMessage(input: string): string {
-  if (!input) return "";
-  // Strip everything, keep only text content
-  const cleaned = DOMPurify.sanitize(input, {
-    ALLOWED_TAGS: [],
-    ALLOWED_ATTR: [],
-    KEEP_CONTENT: true,
-  });
-  return cleaned.trim();
+  return sanitizePlainText(input);
 }
 
 /**
@@ -55,7 +39,6 @@ export function sanitizeMessage(input: string): string {
  */
 export function sanitizeUsername(input: string): string {
   if (!input) return "";
-  // Allow letters, numbers, spaces, underscores, hyphens, dots, accents
   const cleaned = input.trim().replace(/[^\p{L}\p{N} _.\-]/gu, "");
   return cleaned.slice(0, 30);
 }
@@ -65,13 +48,9 @@ export function sanitizeUsername(input: string): string {
  */
 export function sanitizeAvatar(input: string): string {
   if (!input) return "🎮";
-  // Strip all HTML, keep only emoji
-  const cleaned = DOMPurify.sanitize(input, {
-    ALLOWED_TAGS: [],
-    ALLOWED_ATTR: [],
-    KEEP_CONTENT: true,
-  });
-  return cleaned.trim().slice(0, 10) || "🎮";
+  // Remove HTML tags, keep only text/emoji
+  const cleaned = input.replace(/<[^>]*>/g, "").trim();
+  return cleaned.slice(0, 10) || "🎮";
 }
 
 /**

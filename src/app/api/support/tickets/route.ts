@@ -7,22 +7,30 @@ import { sanitizeMessage } from "@/lib/sanitize";
 
 // GET /api/support/tickets?userId=...
 export async function GET(req: NextRequest) {
-  const { searchParams } = new URL(req.url);
-  const userId = searchParams.get("userId");
-  if (!userId) {
-    return NextResponse.json({ error: "userId required" }, { status: 400 });
+  try {
+    const { searchParams } = new URL(req.url);
+    const userId = searchParams.get("userId");
+    if (!userId) {
+      return NextResponse.json({ error: "userId required" }, { status: 400 });
+    }
+
+    const { user, error } = await getActorById(userId);
+    if (error) return errorResponse(error);
+
+    const tickets = await db.supportTicket.findMany({
+      where: { openerId: user!.id },
+      include: { messages: { orderBy: { createdAt: "asc" } } },
+      orderBy: { updatedAt: "desc" },
+    });
+
+    return NextResponse.json({ tickets });
+  } catch (e) {
+    console.error("GET support/tickets error:", e);
+    return NextResponse.json(
+      { error: e instanceof Error ? e.message : "Erreur" },
+      { status: 500 }
+    );
   }
-
-  const { user, error } = await getActorById(userId);
-  if (error) return errorResponse(error);
-
-  const tickets = await db.supportTicket.findMany({
-    where: { openerId: user!.id },
-    include: { messages: { orderBy: { createdAt: "asc" } } },
-    orderBy: { updatedAt: "desc" },
-  });
-
-  return NextResponse.json({ tickets });
 }
 
 // POST /api/support/tickets
