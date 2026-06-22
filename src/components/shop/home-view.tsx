@@ -9,7 +9,7 @@ import { useEffect, useState } from "react";
 import { RatingBadge } from "./rating-modal";
 
 export function HomeView() {
-  const { games, setActiveTab, setSelectedGameId, setPendingListingId, setLoginOpen, me } =
+  const { games, setActiveTab, setSelectedGameId, setPendingListingId, setLoginOpen, me, setContactListing } =
     useAppStore();
   const [featured, setFeatured] = useState<Listing[]>([]);
 
@@ -32,6 +32,18 @@ export function HomeView() {
       return;
     }
     setPendingListingId(l.id);
+  }
+
+  function contact(l: Listing) {
+    if (!me) {
+      setLoginOpen(true);
+      return;
+    }
+    setContactListing({
+      id: l.id,
+      title: l.title,
+      sellerName: l.seller?.username ?? "Vendeur",
+    });
   }
 
   return (
@@ -154,6 +166,7 @@ export function HomeView() {
                 key={l.id}
                 listing={l}
                 onBuy={() => buy(l)}
+                onContact={() => contact(l)}
               />
             ))}
           </div>
@@ -213,9 +226,11 @@ function GameCard({ game, onClick }: { game: Game; onClick: () => void }) {
 function ListingMiniCard({
   listing,
   onBuy,
+  onContact,
 }: {
   listing: Listing;
   onBuy: () => void;
+  onContact: () => void;
 }) {
   const images = getListingImages(listing);
   const firstImage = images[0];
@@ -262,10 +277,23 @@ function ListingMiniCard({
           <span className="font-extrabold text-fuchsia-600 text-base">
             {formatFCFA(listing.price)}
           </span>
+        </div>
+
+        {/* Two buttons: Message + Buy */}
+        <div className="mt-2 flex gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={onContact}
+            className="flex-1 h-8 rounded-full border-emerald-300 text-emerald-700 hover:bg-emerald-50 font-semibold text-xs"
+          >
+            <MessageCircle className="size-3.5" />
+            Message
+          </Button>
           <Button
             size="sm"
             onClick={onBuy}
-            className="h-8 rounded-full bg-gradient-to-r from-sky-500 to-cyan-500 text-white text-xs font-bold"
+            className="flex-1 h-8 rounded-full bg-gradient-to-r from-sky-500 to-cyan-500 text-white text-xs font-bold"
           >
             <span className="size-3.5 rounded-full bg-white/20 grid place-items-center text-[8px] font-bold">
               W

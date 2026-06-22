@@ -44,6 +44,10 @@ type AppState = {
   activeConversationId: string | null;
   setActiveConversationId: (id: string | null) => void;
 
+  // contact seller dialog (global — triggered from any listing card)
+  contactListing: { id: string; title: string; sellerName: string } | null;
+  setContactListing: (l: { id: string; title: string; sellerName: string } | null) => void;
+
   // report: order id to report (opens report dialog)
   reportOrderId: string | null;
   setReportOrderId: (id: string | null) => void;
@@ -90,6 +94,9 @@ export const useAppStore = create<AppState>((set) => ({
 
   activeConversationId: null,
   setActiveConversationId: (id) => set({ activeConversationId: id }),
+
+  contactListing: null,
+  setContactListing: (l) => set({ contactListing: l }),
 
   reportOrderId: null,
   setReportOrderId: (id) => set({ reportOrderId: id }),

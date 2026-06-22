@@ -8,15 +8,13 @@ import { formatFCFA, getListingImages } from "@/lib/types";
 import { useEffect, useState, useCallback } from "react";
 import { ListingSearch, emptyFilter, type FilterState } from "./search-and-rating";
 import { RatingBadge } from "./rating-modal";
-import { ContactSellerDialog } from "./messages-view";
 
 export function GamesView() {
-  const { games, selectedGameId, setSelectedGameId, setPendingListingId, setLoginOpen, me, setActiveConversationId, setReportListingId } =
+  const { games, selectedGameId, setSelectedGameId, setPendingListingId, setLoginOpen, me, setContactListing, setReportListingId } =
     useAppStore();
   const [listings, setListings] = useState<Listing[]>([]);
   const [loading, setLoading] = useState(false);
   const [filter, setFilter] = useState<FilterState>(emptyFilter);
-  const [contactListing, setContactListing] = useState<Listing | null>(null);
 
   const selectedGame = games.find((g) => g.id === selectedGameId) ?? null;
 
@@ -60,7 +58,11 @@ export function GamesView() {
       setLoginOpen(true);
       return;
     }
-    setContactListing(l);
+    setContactListing({
+      id: l.id,
+      title: l.title,
+      sellerName: l.seller?.username ?? "Vendeur",
+    });
   }
 
   function reportListing(l: Listing) {
@@ -140,19 +142,6 @@ export function GamesView() {
             ))}
           </div>
         )}
-
-        {/* Contact seller dialog */}
-        <ContactSellerDialog
-          listingId={contactListing?.id ?? ""}
-          listingTitle={contactListing?.title ?? ""}
-          sellerName={contactListing?.seller?.username ?? ""}
-          open={!!contactListing}
-          onClose={() => setContactListing(null)}
-          onStarted={(conversationId) => {
-            setContactListing(null);
-            setActiveConversationId(conversationId);
-          }}
-        />
       </div>
     );
   }
@@ -289,7 +278,7 @@ function ListingCard({
             className="flex-1 h-10 rounded-full border-emerald-300 text-emerald-700 hover:bg-emerald-50 font-semibold text-sm"
           >
             <MessageCircle className="size-4" />
-            Contacter
+            Message
           </Button>
           <Button
             onClick={onBuy}

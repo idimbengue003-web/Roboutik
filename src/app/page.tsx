@@ -16,7 +16,7 @@ import { RatingModal } from "@/components/shop/rating-modal";
 import { SupportView } from "@/components/shop/support-view";
 import { SupportDrawer } from "@/components/shop/support-drawer";
 import { AdminView } from "@/components/shop/admin-view";
-import { MessagesView } from "@/components/shop/messages-view";
+import { MessagesView, ContactSellerDialog } from "@/components/shop/messages-view";
 import { ConversationsDrawer } from "@/components/shop/conversations-drawer";
 import { ReportSellerDialog } from "@/components/shop/report-seller-dialog";
 import { ProfileModal } from "@/components/shop/profile-modal";
@@ -112,6 +112,29 @@ export default function Home() {
       <ConversationsDrawer />
       <ReportSellerDialog />
       <ProfileModal />
+      <GlobalContactSellerDialog />
     </div>
+  );
+}
+
+/**
+ * Global ContactSellerDialog — rendered once at the app root.
+ * Any component can trigger it by calling setContactListing({ id, title, sellerName }).
+ * Used by listing cards on both home page and games page.
+ */
+function GlobalContactSellerDialog() {
+  const { contactListing, setContactListing, setActiveConversationId } = useAppStore();
+  return (
+    <ContactSellerDialog
+      listingId={contactListing?.id ?? ""}
+      listingTitle={contactListing?.title ?? ""}
+      sellerName={contactListing?.sellerName ?? ""}
+      open={!!contactListing}
+      onClose={() => setContactListing(null)}
+      onStarted={(conversationId) => {
+        setContactListing(null);
+        setActiveConversationId(conversationId);
+      }}
+    />
   );
 }
