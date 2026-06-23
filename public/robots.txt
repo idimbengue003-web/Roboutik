@@ -4,5 +4,6 @@ Allow: /how-it-works
 Disallow: /api/
 Disallow: /admin
 Disallow: /seller
+Disallow: /legal/
 
 Sitemap: https://robloxboutik.com/sitemap.xml

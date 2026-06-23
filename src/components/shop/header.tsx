@@ -38,18 +38,17 @@ export function Header() {
     };
   }, [me, ordersVersion]);
 
-  const tabs: { id: typeof activeTab; label: string; icon: typeof Home; needsAuth?: boolean; needsAdmin?: boolean }[] = [
+  const tabs: { id: typeof activeTab; label: string; icon: typeof Home; needsAuth?: boolean }[] = [
     { id: "home", label: "Accueil", icon: Home },
     { id: "games", label: "Jeux Roblox", icon: Gamepad2 },
     { id: "orders", label: "Commandes", icon: ShoppingBag, needsAuth: true },
     { id: "messages", label: "Messages", icon: MessagesSquare, needsAuth: true },
     { id: "seller", label: "Vendeur", icon: Store, needsAuth: true },
     { id: "support", label: "Support", icon: HeadphonesIcon },
-    { id: "admin", label: "Admin", icon: Shield, needsAdmin: true },
   ];
 
   const visibleTabs = tabs.filter(
-    (t) => (!t.needsAuth || me) && (!t.needsAdmin || me?.isAdmin)
+    (t) => !t.needsAuth || me
   );
   const displayCount = me ? orderCount : 0;
 

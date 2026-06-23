@@ -15,10 +15,9 @@ import { GoogleLoginModal } from "@/components/shop/google-login";
 import { RatingModal } from "@/components/shop/rating-modal";
 import { SupportView } from "@/components/shop/support-view";
 import { SupportDrawer } from "@/components/shop/support-drawer";
-import { AdminView } from "@/components/shop/admin-view";
-import { MessagesView, ContactSellerDialog } from "@/components/shop/messages-view";
 import { ConversationsDrawer } from "@/components/shop/conversations-drawer";
 import { ReportSellerDialog } from "@/components/shop/report-seller-dialog";
+import { MessagesView, ContactSellerDialog } from "@/components/shop/messages-view";
 import { ProfileModal } from "@/components/shop/profile-modal";
 import { Loader2 } from "lucide-react";
 
@@ -98,7 +97,6 @@ export default function Home() {
             {activeTab === "messages" && <MessagesView />}
             {activeTab === "seller" && <SellerView />}
             {activeTab === "support" && <SupportView />}
-            {activeTab === "admin" && <AdminView />}
           </>
         )}
       </main>
