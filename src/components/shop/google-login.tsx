@@ -158,9 +158,9 @@ export function UserChip() {
         variant="ghost"
         size="icon"
         className="size-9 rounded-full text-slate-400 hover:text-rose-500 hover:bg-rose-50"
-        onClick={async () => {
-          await signOut();
+        onClick={() => {
           toast({ title: "Déconnecté·e 👋" });
+          signOut();
         }}
         title="Se déconnecter"
       >

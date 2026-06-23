@@ -1,6 +1,6 @@
 "use client";
 
-import { SessionProvider, useSession } from "next-auth/react";
+import { SessionProvider, useSession, signOut as nextAuthSignOut } from "next-auth/react";
 import { useEffect, useState } from "react";
 import type { User } from "@/lib/types";
 
@@ -64,9 +64,11 @@ export function useAuth() {
       )}`;
     },
     signOut: async () => {
-      await fetch("/api/auth/signout", { method: "POST" });
       setUser(null);
-      window.location.href = "/";
+      await nextAuthSignOut({
+        callbackUrl: "/",
+        redirect: true,
+      });
     },
   };
 }
