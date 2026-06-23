@@ -22,6 +22,7 @@ model User {
   googleSub  String?  @unique
   isSeller   Boolean  @default(false)
   isAdmin    Boolean  @default(false)
+  isVerified Boolean  @default(false)
   isBanned   Boolean  @default(false)
   bannedAt   DateTime?
   banReason  String?

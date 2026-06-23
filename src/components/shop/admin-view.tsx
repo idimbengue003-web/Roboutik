@@ -453,6 +453,11 @@ function UsersTab({ adminId }: { adminId: string }) {
                       ADMIN
                     </span>
                   )}
+                  {u.isVerified && (
+                    <span className="bg-sky-100 text-sky-700 rounded-full px-1.5 py-0.5 text-[10px] font-bold">
+                      ✓ Vérifié
+                    </span>
+                  )}
                   {u.isSeller && (
                     <span className="bg-emerald-100 text-emerald-700 rounded-full px-1.5 py-0.5 text-[10px] font-bold">
                       VENDEUR
@@ -486,7 +491,7 @@ function UsersTab({ adminId }: { adminId: string }) {
                   </p>
                 )}
               </div>
-              <div className="shrink-0">
+              <div className="shrink-0 flex flex-col gap-1">
                 {u.isBanned ? (
                   <Button
                     size="sm"
@@ -507,6 +512,50 @@ function UsersTab({ adminId }: { adminId: string }) {
                     >
                       <Ban className="size-3.5" />
                       Bannir
+                    </Button>
+                  )
+                )}
+                {/* Verify/Unverify button */}
+                {u.isSeller && !u.isBanned && (
+                  u.isVerified ? (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={async () => {
+                        try {
+                          const r = await fetch(`/api/admin/users/${u.id}/verify?adminId=${adminId}`, { method: "DELETE" });
+                          if (!r.ok) throw new Error("Échec");
+                          toast({ title: "Vendeur dé-vérifié" });
+                          load();
+                        } catch (e) {
+                          toast({ title: "Erreur", description: e instanceof Error ? e.message : "?", variant: "destructive" });
+                        }
+                      }}
+                      className="h-7 text-[10px] rounded-full text-slate-500"
+                    >
+                      Retirer ✓
+                    </Button>
+                  ) : (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={async () => {
+                        try {
+                          const r = await fetch(`/api/admin/users/${u.id}/verify`, {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ adminId }),
+                          });
+                          if (!r.ok) throw new Error("Échec");
+                          toast({ title: "Vendeur vérifié ✓" });
+                          load();
+                        } catch (e) {
+                          toast({ title: "Erreur", description: e instanceof Error ? e.message : "?", variant: "destructive" });
+                        }
+                      }}
+                      className="h-7 text-[10px] rounded-full text-sky-600 border-sky-300 hover:bg-sky-50"
+                    >
+                      ✓ Vérifier
                     </Button>
                   )
                 )}

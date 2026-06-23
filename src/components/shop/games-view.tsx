@@ -261,6 +261,11 @@ function ListingCard({
             {listing.seller?.avatar ?? "🛒"}
           </div>
           <span className="font-medium">{listing.seller?.username}</span>
+          {listing.seller?.isVerified && (
+            <span className="inline-flex items-center gap-0.5 text-[10px] font-bold text-sky-600 bg-sky-50 rounded-full px-1.5 py-0.5">
+              ✓ Vérifié
+            </span>
+          )}
           <Store className="size-3.5 text-emerald-500" />
         </div>
 

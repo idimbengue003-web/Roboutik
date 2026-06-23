@@ -147,7 +147,7 @@ export function UserChip() {
           </p>
           {me.isSeller ? (
             <p className="text-[10px] text-emerald-600 leading-tight">
-              Vendeur · {me.balance.toLocaleString("fr-FR")} F
+              {me.isVerified && "✓ "}Vendeur · {me.balance.toLocaleString("fr-FR")} F
             </p>
           ) : (
             <p className="text-[10px] text-slate-500 leading-tight">Acheteur</p>

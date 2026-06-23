@@ -19,6 +19,7 @@ export type User = {
   googleSub: string | null;
   isSeller: boolean;
   isAdmin: boolean;
+  isVerified: boolean;
   isBanned: boolean;
   bannedAt: string | null;
   banReason: string | null;
