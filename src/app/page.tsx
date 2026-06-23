@@ -19,6 +19,9 @@ import { ConversationsDrawer } from "@/components/shop/conversations-drawer";
 import { ReportSellerDialog } from "@/components/shop/report-seller-dialog";
 import { MessagesView, ContactSellerDialog } from "@/components/shop/messages-view";
 import { ProfileModal } from "@/components/shop/profile-modal";
+import { CookieBanner } from "@/components/shop/cookie-banner";
+import { AgeGate } from "@/components/shop/age-gate";
+import { NotificationPermission } from "@/components/shop/notification-permission";
 import { Loader2 } from "lucide-react";
 
 export default function Home() {
@@ -110,6 +113,9 @@ export default function Home() {
       <ReportSellerDialog />
       <ProfileModal />
       <GlobalContactSellerDialog />
+      <AgeGate />
+      <CookieBanner />
+      <NotificationPermission />
     </div>
   );
 }
