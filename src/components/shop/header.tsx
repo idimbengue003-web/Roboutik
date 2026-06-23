@@ -58,14 +58,14 @@ export function Header() {
         {/* Logo */}
         <button
           onClick={() => setActiveTab("home")}
-          className="flex items-center gap-2 font-extrabold text-lg sm:text-xl"
+          className="flex items-center gap-1.5 font-extrabold text-sm sm:text-base shrink-0"
         >
           <img
             src="/logo-roboutik.png"
             alt="RobloxBoutik"
-            className="size-9 rounded-xl shadow-md object-cover"
+            className="size-7 sm:size-8 rounded-lg shadow-md object-cover"
           />
-          <span className="bg-gradient-to-r from-fuchsia-600 via-rose-500 to-orange-500 bg-clip-text text-transparent">
+          <span className="bg-gradient-to-r from-fuchsia-600 via-rose-500 to-orange-500 bg-clip-text text-transparent whitespace-nowrap">
             RobloxBoutik
           </span>
         </button>
