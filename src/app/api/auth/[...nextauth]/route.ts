@@ -81,7 +81,8 @@ export const authOptions: NextAuthOptions = {
     /**
      * jwt callback: inject the Prisma user id into the JWT.
      */
-    async jwt({ token, user, trigger }) {
+    async jwt({ token, user }) {
+      // Always look up the user from DB to get the latest isAdmin/isBanned values
       const emailForLookup = user?.email || token.email;
       if (emailForLookup) {
         const dbUser = await db.user.findUnique({
@@ -89,18 +90,6 @@ export const authOptions: NextAuthOptions = {
         });
         if (dbUser) {
           token.userId = dbUser.id;
-          token.username = dbUser.username;
-          token.isAdmin = dbUser.isAdmin;
-          token.isSeller = dbUser.isSeller;
-          token.isBanned = dbUser.isBanned;
-        }
-      }
-      // Refresh on subsequent calls (in case user was banned/promoted)
-      if (token.userId && trigger !== "signIn" && !user) {
-        const dbUser = await db.user.findUnique({
-          where: { id: token.userId as string },
-        });
-        if (dbUser) {
           token.username = dbUser.username;
           token.isAdmin = dbUser.isAdmin;
           token.isSeller = dbUser.isSeller;
