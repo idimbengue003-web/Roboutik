@@ -5,22 +5,49 @@ import { Loader2, Shield, ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { useEffect, useState } from "react";
+import { useAppStore } from "@/lib/store";
 import type { User } from "@/lib/types";
 
 export default function AdminPage() {
+  const { me } = useAppStore();
   const [loading, setLoading] = useState(true);
-  const [user, setUser] = useState<User | null>(null);
+  const [verifiedUser, setVerifiedUser] = useState<User | null>(null);
   const [reason, setReason] = useState<string>("");
 
   useEffect(() => {
     (async () => {
+      // Wait a bit for the store to populate from useAuth
+      if (!me) {
+        // Try waiting up to 3 seconds
+        let tries = 0;
+        while (!me && tries < 10) {
+          await new Promise((r) => setTimeout(r, 300));
+          tries++;
+        }
+      }
+
+      if (!me) {
+        setReason("not_authenticated");
+        setLoading(false);
+        return;
+      }
+
+      // Double-check admin status from DB via /api/me
       try {
-        const r = await fetch("/api/auth/check-admin");
+        const r = await fetch(`/api/me?userId=${me.id}`);
+        if (!r.ok) {
+          setReason("user_not_found");
+          setLoading(false);
+          return;
+        }
         const d = await r.json();
-        if (d.isAdmin && d.user) {
-          setUser(d.user);
+        const user = d.user;
+        if (!user) {
+          setReason("user_not_found");
+        } else if (!user.isAdmin) {
+          setReason("not_admin");
         } else {
-          setReason(d.reason || d.error || "not_admin");
+          setVerifiedUser(user);
         }
       } catch (e) {
         setReason(e instanceof Error ? e.message : "fetch_error");
@@ -28,7 +55,7 @@ export default function AdminPage() {
         setLoading(false);
       }
     })();
-  }, []);
+  }, [me]);
 
   if (loading) {
     return (
@@ -38,7 +65,7 @@ export default function AdminPage() {
     );
   }
 
-  if (!user) {
+  if (!verifiedUser) {
     return (
       <div className="min-h-screen grid place-items-center bg-rose-50 p-6">
         <div className="max-w-md text-center">
@@ -47,7 +74,10 @@ export default function AdminPage() {
           <p className="text-slate-500 mt-2">
             Cette page est réservée aux administrateurs de Roboutik.
           </p>
-          <p className="text-xs text-slate-400 mt-2">Raison: {reason}</p>
+          <p className="text-xs text-slate-400 mt-2">
+            Raison: {reason || "inconnue"}
+            {me && ` | User: ${me.email} | isAdmin: ${String(me.isAdmin)}`}
+          </p>
           <Link href="/">
             <Button className="mt-4 rounded-full">
               <ArrowLeft className="size-4" />
