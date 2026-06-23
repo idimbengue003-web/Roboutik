@@ -27,11 +27,10 @@ export default function Home() {
   const [booting, setBooting] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Init seed + load games
+  // Load games on mount (no init call in production — games are already seeded)
   useEffect(() => {
     (async () => {
       try {
-        await fetch("/api/init");
         const gamesRes = await fetch("/api/games");
         if (gamesRes.ok) {
           const d = await gamesRes.json();
