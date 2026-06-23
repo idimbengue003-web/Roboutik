@@ -2,7 +2,7 @@
 
 import { useAppStore } from "@/lib/store";
 import { Button } from "@/components/ui/button";
-import { Home, Gamepad2, ShoppingBag, Sparkles, Store, HeadphonesIcon, Shield, MessagesSquare } from "lucide-react";
+import { Home, Gamepad2, ShoppingBag, Store, HeadphonesIcon, Shield, MessagesSquare } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useEffect, useState } from "react";
 import { UserChip } from "./google-login";
@@ -61,9 +61,11 @@ export function Header() {
           onClick={() => setActiveTab("home")}
           className="flex items-center gap-2 font-extrabold text-lg sm:text-xl"
         >
-          <div className="grid size-9 place-items-center rounded-xl bg-gradient-to-br from-fuchsia-500 to-orange-400 text-white shadow-md">
-            <Sparkles className="size-5" />
-          </div>
+          <img
+            src="/logo-roboutik.png"
+            alt="RobloxBoutik"
+            className="size-9 rounded-xl shadow-md object-cover"
+          />
           <span className="bg-gradient-to-r from-fuchsia-600 via-rose-500 to-orange-500 bg-clip-text text-transparent">
             RobloxBoutik
           </span>

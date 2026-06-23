@@ -133,7 +133,14 @@ export function middleware(req: NextRequest) {
     path.startsWith("/games/") ||
     path === "/" ||
     path === "/steal-a-brainrot-hero.webp" ||
-    path.startsWith("/legal/")
+    path === "/wave-logo.png" ||
+    path === "/logo-roboutik.png" ||
+    path.startsWith("/favicon-") ||
+    path === "/apple-touch-icon.png" ||
+    path.startsWith("/legal/") ||
+    path.startsWith("/how-it-works") ||
+    path === "/manifest.json" ||
+    path === "/sitemap.xml"
   ) {
     return NextResponse.next();
   }

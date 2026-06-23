@@ -222,9 +222,11 @@ export function PaymentView() {
         <div className="rounded-3xl overflow-hidden shadow-xl border border-sky-100">
           {/* Wave brand bar */}
           <div className="bg-gradient-to-br from-sky-500 via-cyan-500 to-blue-600 px-6 py-6 text-white text-center">
-            <div className="mx-auto grid size-14 place-items-center rounded-2xl bg-white/20 backdrop-blur text-3xl font-black mb-2">
-              W
-            </div>
+            <img
+              src="/wave-logo.png"
+              alt="Wave"
+              className="mx-auto size-14 object-contain mb-2"
+            />
             <h1 className="text-2xl font-extrabold">Wave</h1>
             <p className="text-xs opacity-90 mt-0.5">Paiement sécurisé</p>
           </div>

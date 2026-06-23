@@ -844,9 +844,11 @@ function WithdrawDialog({
           <DialogTitle>Retrait Wave</DialogTitle>
         </VisuallyHidden>
         <div className="bg-gradient-to-br from-sky-500 via-cyan-500 to-blue-600 px-6 py-5 text-white text-center">
-          <div className="mx-auto grid size-12 place-items-center rounded-2xl bg-white/20 backdrop-blur text-2xl font-black mb-1">
-            W
-          </div>
+          <img
+            src="/wave-logo.png"
+            alt="Wave"
+            className="mx-auto size-12 object-contain mb-1"
+          />
           <h2 className="text-xl font-extrabold">Retrait Wave</h2>
           <p className="text-xs opacity-90">
             Solde disponible : {formatFCFA(maxAmount)}
