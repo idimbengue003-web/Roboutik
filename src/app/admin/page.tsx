@@ -1,71 +1,67 @@
 "use client";
 
+import { useSession } from "next-auth/react";
 import { AdminView } from "@/components/shop/admin-view";
 import { Loader2, Shield, ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { useEffect, useState } from "react";
-import { useAppStore } from "@/lib/store";
 import type { User } from "@/lib/types";
 
 export default function AdminPage() {
-  const { me } = useAppStore();
-  const [loading, setLoading] = useState(true);
-  const [verifiedUser, setVerifiedUser] = useState<User | null>(null);
-  const [reason, setReason] = useState<string>("");
+  const { data: session, status } = useSession();
+  const [user, setUser] = useState<User | null>(null);
+  const [checked, setChecked] = useState(false);
+  const [reason, setReason] = useState("");
 
   useEffect(() => {
-    (async () => {
-      // Wait a bit for the store to populate from useAuth
-      if (!me) {
-        // Try waiting up to 3 seconds
-        let tries = 0;
-        while (!me && tries < 10) {
-          await new Promise((r) => setTimeout(r, 300));
-          tries++;
-        }
-      }
-
-      if (!me) {
+    if (status !== "authenticated") {
+      if (status === "unauthenticated") {
         setReason("not_authenticated");
-        setLoading(false);
-        return;
+        setChecked(true);
       }
+      return;
+    }
 
-      // Double-check admin status from DB via /api/me
+    const email = (session?.user as { email?: string })?.email;
+    if (!email) {
+      setReason("no_email_in_session");
+      setChecked(true);
+      return;
+    }
+
+    // Look up user by email to get isAdmin from DB
+    (async () => {
       try {
-        const r = await fetch(`/api/me?userId=${me.id}`);
-        if (!r.ok) {
-          setReason("user_not_found");
-          setLoading(false);
-          return;
-        }
+        // Find user via a simple approach: try /api/me with known admin email
+        // We need to find the userId. Let's use a dedicated endpoint.
+        const r = await fetch(`/api/auth/check-admin`);
         const d = await r.json();
-        const user = d.user;
-        if (!user) {
-          setReason("user_not_found");
-        } else if (!user.isAdmin) {
-          setReason("not_admin");
+        if (d.isAdmin && d.user) {
+          setUser(d.user);
         } else {
-          setVerifiedUser(user);
+          setReason(d.reason || `isAdmin=${d.isAdmin}`);
         }
       } catch (e) {
         setReason(e instanceof Error ? e.message : "fetch_error");
       } finally {
-        setLoading(false);
+        setChecked(true);
       }
     })();
-  }, [me]);
+  }, [session, status]);
 
-  if (loading) {
+  if (status === "loading" || !checked) {
     return (
       <div className="min-h-screen grid place-items-center bg-gradient-to-br from-rose-50 via-white to-orange-50">
-        <Loader2 className="size-10 animate-spin text-rose-500" />
+        <div className="flex flex-col items-center gap-3">
+          <Loader2 className="size-10 animate-spin text-rose-500" />
+          <p className="text-sm text-slate-500">Vérification de l'accès admin...</p>
+        </div>
       </div>
     );
   }
 
-  if (!verifiedUser) {
+  if (!user) {
     return (
       <div className="min-h-screen grid place-items-center bg-rose-50 p-6">
         <div className="max-w-md text-center">
@@ -75,8 +71,7 @@ export default function AdminPage() {
             Cette page est réservée aux administrateurs de Roboutik.
           </p>
           <p className="text-xs text-slate-400 mt-2">
-            Raison: {reason || "inconnue"}
-            {me && ` | User: ${me.email} | isAdmin: ${String(me.isAdmin)}`}
+            Raison: {reason} | Session: {status}
           </p>
           <Link href="/">
             <Button className="mt-4 rounded-full">

@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { db } from "@/lib/db";
@@ -7,11 +7,18 @@ import { db } from "@/lib/db";
  * GET /api/auth/check-admin
  *
  * Checks if the current session user is admin by looking up the DB directly.
- * This bypasses JWT caching issues.
+ * Passes the request headers to getServerSession for proper cookie handling.
  */
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
+    // NextAuth v4 with App Router: need to pass headers for cookie extraction
+    const session = await getServerSession(
+      req,
+      {
+        headers: req.headers,
+      } as any,
+      authOptions
+    );
 
     if (!session?.user?.email) {
       return NextResponse.json({ isAdmin: false, reason: "not_authenticated" });
@@ -19,7 +26,17 @@ export async function GET() {
 
     const user = await db.user.findUnique({
       where: { email: session.user.email },
-      select: { id: true, username: true, email: true, isAdmin: true, isSeller: true, isVerified: true, isBanned: true, balance: true, avatar: true },
+      select: {
+        id: true,
+        username: true,
+        email: true,
+        avatar: true,
+        isAdmin: true,
+        isSeller: true,
+        isVerified: true,
+        isBanned: true,
+        balance: true,
+      },
     });
 
     if (!user) {
@@ -28,22 +45,12 @@ export async function GET() {
 
     return NextResponse.json({
       isAdmin: user.isAdmin,
-      user: {
-        id: user.id,
-        username: user.username,
-        email: user.email,
-        avatar: user.avatar,
-        isSeller: user.isSeller,
-        isAdmin: user.isAdmin,
-        isVerified: user.isVerified,
-        isBanned: user.isBanned,
-        balance: user.balance,
-      },
+      user,
     });
   } catch (e) {
     console.error("check-admin error:", e);
     return NextResponse.json(
-      { isAdmin: false, error: e instanceof Error ? e.message : "Erreur" },
+      { isAdmin: false, reason: "error", error: e instanceof Error ? e.message : "?" },
       { status: 500 }
     );
   }
