@@ -10,7 +10,7 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Loader2, LogOut } from "lucide-react";
+import { Loader2, LogOut, Shield } from "lucide-react";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { VisuallyHidden } from "@/components/ui/visually-hidden";
@@ -133,6 +133,20 @@ export function UserChip() {
 
   return (
     <div className="flex items-center gap-2">
+      {/* Admin button — only visible to admins */}
+      {me.isAdmin && (
+        <a href="/admin" target="_blank" rel="noopener noreferrer">
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-8 rounded-full text-rose-600 hover:bg-rose-50 px-2"
+            title="Panel admin"
+          >
+            <Shield className="size-4" />
+            <span className="hidden lg:inline text-xs font-bold">Admin</span>
+          </Button>
+        </a>
+      )}
       <button
         onClick={() => setProfileOpen(true)}
         className="flex items-center gap-2 rounded-full bg-slate-100 hover:bg-slate-200 pl-1 pr-3 py-1 transition-colors"
@@ -149,6 +163,8 @@ export function UserChip() {
             <p className="text-[10px] text-emerald-600 leading-tight">
               {me.isVerified && "✓ "}Vendeur · {me.balance.toLocaleString("fr-FR")} F
             </p>
+          ) : me.isAdmin ? (
+            <p className="text-[10px] text-rose-600 leading-tight font-bold">Admin</p>
           ) : (
             <p className="text-[10px] text-slate-500 leading-tight">Acheteur</p>
           )}
