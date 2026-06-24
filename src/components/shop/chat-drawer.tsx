@@ -273,6 +273,30 @@ export function ChatDrawer() {
           )}
           {messages.map((m) => {
             const mine = m.senderId === me?.id;
+            const isSystem = !mine && m.isAuto && m.content.startsWith("🛡️ ROBLOX BOUTIK");
+            if (isSystem) {
+              return (
+                <div key={m.id} className="flex justify-center my-1">
+                  <div className="max-w-[92%] rounded-2xl border border-slate-200 bg-white shadow-sm px-4 py-3 text-center">
+                    <div className="flex items-center justify-center gap-1.5 mb-1.5">
+                      <ShieldCheck className="size-3.5 text-fuchsia-600" />
+                      <span className="text-[10px] font-bold tracking-wide text-fuchsia-600 uppercase">
+                        ROBLOX BOUTIK
+                      </span>
+                    </div>
+                    <p className="whitespace-pre-wrap break-words text-xs text-slate-700 leading-relaxed">
+                      {m.content.replace(/^🛡️ ROBLOX BOUTIK\s*—?\s*/, "")}
+                    </p>
+                    <p className="text-[9px] text-slate-400 mt-1.5">
+                      {new Date(m.createdAt).toLocaleTimeString("fr-FR", {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                    </p>
+                  </div>
+                </div>
+              );
+            }
             return (
               <div
                 key={m.id}
