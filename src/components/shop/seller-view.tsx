@@ -15,6 +15,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { VisuallyHidden } from "@/components/ui/visually-hidden";
+import { Switch } from "@/components/ui/switch";
 import {
   Wallet,
   Plus,
@@ -27,6 +28,7 @@ import {
   Clock,
   X,
   Percent,
+  Pencil,
 } from "lucide-react";
 import { useEffect, useState, useCallback } from "react";
 import type { Listing, Order, User, Withdrawal, Game } from "@/lib/types";
@@ -440,6 +442,8 @@ function SellerListingCard({
   const { me } = useAppStore();
   const { toast } = useToast();
   const [busy, setBusy] = useState(false);
+  const [showEdit, setShowEdit] = useState(false);
+  const stock = typeof listing.stock === "number" ? listing.stock : 1;
 
   async function toggleActive() {
     if (!me) return;
@@ -523,12 +527,36 @@ function SellerListingCard({
               Net : {formatFCFA(listing.sellerNetPrice ?? Math.round(listing.price / 1.2))}
             </span>
           </div>
-          <RatingBadge ratings={listing.ratings} />
+          <div className="flex items-center gap-2">
+            <span
+              className={`text-[10px] font-bold rounded-full px-2 py-0.5 ${
+                stock <= 0
+                  ? "bg-rose-100 text-rose-700"
+                  : stock <= 3
+                  ? "bg-amber-100 text-amber-700"
+                  : "bg-emerald-100 text-emerald-700"
+              }`}
+              title="Stock disponible"
+            >
+              {stock <= 0 ? "Rupture" : `${stock} en stock`}
+            </span>
+            <RatingBadge ratings={listing.ratings} />
+          </div>
         </div>
         <p className="text-[11px] text-slate-400 mt-1">
           {listing.orders.length} commande{listing.orders.length > 1 ? "s" : ""}
         </p>
-        <div className="flex gap-2 mt-2">
+        <div className="flex flex-wrap gap-2 mt-2">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setShowEdit(true)}
+            disabled={busy}
+            className="h-7 text-xs rounded-full"
+          >
+            <Pencil className="size-3" />
+            Modifier
+          </Button>
           <Button
             size="sm"
             variant="outline"
@@ -550,7 +578,195 @@ function SellerListingCard({
           </Button>
         </div>
       </div>
+
+      <EditListingDialog
+        open={showEdit}
+        onClose={() => setShowEdit(false)}
+        listing={listing}
+        onSaved={() => {
+          setShowEdit(false);
+          onChanged();
+        }}
+      />
     </div>
+  );
+}
+
+function EditListingDialog({
+  open,
+  onClose,
+  listing,
+  onSaved,
+}: {
+  open: boolean;
+  onClose: () => void;
+  listing: Listing & { ratings: { stars: number }[]; orders: { id: string }[] };
+  onSaved: () => void;
+}) {
+  const { me } = useAppStore();
+  const { toast } = useToast();
+  const [title, setTitle] = useState(listing.title);
+  const [description, setDescription] = useState(listing.description);
+  const [sellerNetPrice, setSellerNetPrice] = useState(
+    String(listing.sellerNetPrice ?? Math.round(listing.price / 1.2))
+  );
+  const [stock, setStock] = useState(
+    String(typeof listing.stock === "number" ? listing.stock : 1)
+  );
+  const [active, setActive] = useState(listing.active);
+  const [saving, setSaving] = useState(false);
+
+  // Reset form fields whenever the dialog opens for a (possibly new) listing
+  useEffect(() => {
+    if (open) {
+      setTitle(listing.title);
+      setDescription(listing.description);
+      setSellerNetPrice(
+        String(listing.sellerNetPrice ?? Math.round(listing.price / 1.2))
+      );
+      setStock(String(typeof listing.stock === "number" ? listing.stock : 1));
+      setActive(listing.active);
+    }
+  }, [open, listing]);
+
+  async function submit() {
+    if (!me) return;
+    if (!title.trim() || !description.trim() || !sellerNetPrice) {
+      toast({
+        title: "Tous les champs sont requis",
+        variant: "destructive",
+      });
+      return;
+    }
+    const net = Number(sellerNetPrice);
+    if (!Number.isFinite(net) || net < 100 || net > 1_000_000) {
+      toast({
+        title: "Prix entre 100 et 1 000 000 FCFA",
+        variant: "destructive",
+      });
+      return;
+    }
+    const stockNum = Number(stock);
+    if (!Number.isFinite(stockNum) || stockNum < 0 || stockNum > 9999) {
+      toast({
+        title: "Stock entre 0 et 9999",
+        variant: "destructive",
+      });
+      return;
+    }
+    setSaving(true);
+    try {
+      const r = await fetch(`/api/listings/${listing.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId: me.id,
+          title: title.trim(),
+          description: description.trim(),
+          sellerNetPrice: net,
+          stock: stockNum,
+          active,
+        }),
+      });
+      if (!r.ok) {
+        const e = await r.json().catch(() => ({}));
+        throw new Error(e.error ?? "Échec");
+      }
+      toast({ title: "Annonce mise à jour ✅" });
+      onSaved();
+    } catch (e) {
+      toast({
+        title: "Erreur",
+        description: e instanceof Error ? e.message : "Erreur",
+        variant: "destructive",
+      });
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="sm:max-w-md rounded-3xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Modifier l'annonce</DialogTitle>
+          <DialogDescription>
+            Mets à jour les informations de ton annonce.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-3">
+          <div>
+            <Label className="text-sm font-semibold">Titre</Label>
+            <Input
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              className="mt-1 rounded-xl"
+              maxLength={80}
+            />
+          </div>
+          <div>
+            <Label className="text-sm font-semibold">Description</Label>
+            <Textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              className="mt-1 rounded-xl min-h-[80px]"
+              maxLength={500}
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label className="text-sm font-semibold">Prix net (FCFA)</Label>
+              <Input
+                type="number"
+                inputMode="numeric"
+                value={sellerNetPrice}
+                onChange={(e) => setSellerNetPrice(e.target.value)}
+                className="mt-1 rounded-xl"
+                min={100}
+                max={1_000_000}
+              />
+            </div>
+            <div>
+              <Label className="text-sm font-semibold">Stock</Label>
+              <Input
+                type="number"
+                inputMode="numeric"
+                value={stock}
+                onChange={(e) => setStock(e.target.value)}
+                className="mt-1 rounded-xl"
+                min={0}
+                max={9999}
+              />
+            </div>
+          </div>
+          <div className="flex items-center justify-between rounded-xl border p-3">
+            <div>
+              <p className="text-sm font-semibold text-slate-900">
+                Annonce visible
+              </p>
+              <p className="text-[11px] text-slate-500">
+                Désactive pour masquer temporairement ton annonce.
+              </p>
+            </div>
+            <Switch checked={active} onCheckedChange={setActive} />
+          </div>
+        </div>
+
+        <DialogFooter className="gap-2">
+          <Button variant="ghost" onClick={onClose}>
+            Annuler
+          </Button>
+          <Button
+            disabled={saving}
+            onClick={submit}
+            className="bg-gradient-to-r from-fuchsia-600 to-orange-500 text-white font-bold rounded-full"
+          >
+            {saving ? "Enregistrement…" : "Enregistrer"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 

@@ -79,6 +79,7 @@ model Listing {
   // images: JSON array of base64 data URLs (max 4 images, max 500KB each)
   // Format: ["data:image/webp;base64,...", "data:image/webp;base64,..."]
   images      String?  // JSON string array
+  stock       Int      @default(1)
   active      Boolean  @default(true)
   createdAt   DateTime @default(now())
 

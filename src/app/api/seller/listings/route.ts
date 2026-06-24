@@ -77,6 +77,18 @@ export async function POST(req: NextRequest) {
     const buyerPrice = sellerNetPrice;
     const commission = buyerPrice - sellerNetPrice;
 
+    // Extract stock (default 1, min 0, max 9999)
+    const rawStock = (body as Record<string, unknown>)?.stock;
+    let stock = 1;
+    if (typeof rawStock === "number" && Number.isFinite(rawStock)) {
+      stock = Math.max(0, Math.min(9999, Math.floor(rawStock)));
+    } else if (typeof rawStock === "string" && rawStock.trim() !== "") {
+      const parsed = Number(rawStock);
+      if (Number.isFinite(parsed)) {
+        stock = Math.max(0, Math.min(9999, Math.floor(parsed)));
+      }
+    }
+
     // Extract images (JSON string of base64 data URLs array)
     const rawImages = (body as Record<string, unknown>)?.images;
     let imagesJson: string | null = null;
@@ -107,6 +119,7 @@ export async function POST(req: NextRequest) {
         sellerNetPrice,
         price: buyerPrice,
         images: imagesJson,
+        stock,
         active: true,
       },
       include: { game: true, seller: true },

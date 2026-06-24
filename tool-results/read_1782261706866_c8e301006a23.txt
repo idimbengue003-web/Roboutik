@@ -1,0 +1,911 @@
+     1→     1→"use client";
+     2→     2→
+     3→     3→import { useAppStore } from "@/lib/store";
+     4→     4→import { Button } from "@/components/ui/button";
+     5→     5→import { Input } from "@/components/ui/input";
+     6→     6→import { ImageUpload } from "@/components/shop/image-upload";
+     7→     7→import { Label } from "@/components/ui/label";
+     8→     8→import { Textarea } from "@/components/ui/textarea";
+     9→     9→import {
+    10→    10→  Dialog,
+    11→    11→  DialogContent,
+    12→    12→  DialogHeader,
+    13→    13→  DialogTitle,
+    14→    14→  DialogDescription,
+    15→    15→  DialogFooter,
+    16→    16→} from "@/components/ui/dialog";
+    17→    17→import { VisuallyHidden } from "@/components/ui/visually-hidden";
+    18→    18→import {
+    19→    19→  Wallet,
+    20→    20→  Plus,
+    21→    21→  TrendingUp,
+    22→    22→  ArrowDownToLine,
+    23→    23→  Package,
+    24→    24→  Star,
+    25→    25→  Store,
+    26→    26→  CheckCircle2,
+    27→    27→  Clock,
+    28→    28→  X,
+    29→    29→  Percent,
+    30→    30→} from "lucide-react";
+    31→    31→import { useEffect, useState, useCallback } from "react";
+    32→    32→import type { Listing, Order, User, Withdrawal, Game } from "@/lib/types";
+    33→    33→import { formatFCFA } from "@/lib/types";
+    34→    34→import { RatingBadge } from "./rating-modal";
+    35→    35→import { useToast } from "@/hooks/use-toast";
+    36→    36→
+    37→    37→type SellerData = {
+    38→    38→  user: User;
+    39→    39→  balance: number;
+    40→    40→  totalEarnings: number;
+    41→    41→  totalCommission: number;
+    42→    42→  totalGross: number;
+    43→    43→  withdrawnTotal: number;
+    44→    44→  pendingWithdrawals: number;
+    45→    45→  available: number;
+    46→    46→  validatedOrders: (Order & { rating?: { stars: number } | null })[];
+    47→    47→  withdrawals: Withdrawal[];
+    48→    48→  listings: (Listing & { ratings: { stars: number }[]; orders: { id: string }[] })[];
+    49→    49→};
+    50→    50→
+    51→    51→export function SellerView() {
+    52→    52→  const { me, setLoginOpen, games } = useAppStore();
+    53→    53→  const { toast } = useToast();
+    54→    54→
+    55→    55→  const [data, setData] = useState<SellerData | null>(null);
+    56→    56→  const [loading, setLoading] = useState(true);
+    57→    57→  const [showCreate, setShowCreate] = useState(false);
+    58→    58→  const [showWithdraw, setShowWithdraw] = useState(false);
+    59→    59→
+    60→    60→  const load = useCallback(async () => {
+    61→    61→    if (!me) return;
+    62→    62→    setLoading(true);
+    63→    63→    try {
+    64→    64→      const r = await fetch(`/api/seller/balance?userId=${me.id}`);
+    65→    65→      if (!r.ok) return;
+    66→    66→      const d = await r.json();
+    67→    67→      setData(d);
+    68→    68→    } finally {
+    69→    69→      setLoading(false);
+    70→    70→    }
+    71→    71→  }, [me]);
+    72→    72→
+    73→    73→  useEffect(() => {
+    74→    74→    load();
+    75→    75→  }, [load]);
+    76→    76→
+    77→    77→  if (!me) {
+    78→    78→    return (
+    79→    79→      <div className="mx-3 sm:mx-6 py-12">
+    80→    80→        <div className="rounded-3xl border bg-white p-8 sm:p-12 text-center">
+    81→    81→          <div className="mx-auto grid size-16 place-items-center rounded-full bg-fuchsia-50 mb-4">
+    82→    82→            <Store className="size-8 text-fuchsia-500" />
+    83→    83→          </div>
+    84→    84→          <h2 className="text-xl font-bold text-slate-900">
+    85→    85→            Connecte-toi pour devenir vendeur
+    86→    86→          </h2>
+    87→    87→          <p className="text-slate-500 mt-2 max-w-md mx-auto">
+    88→    88→            Tu veux vendre des objets Roblox ? Connecte-toi avec Google pour
+    89→    89→            créer ton compte vendeur, publier des annonces et encaisser tes
+    90→    90→            paiements Wave.
+    91→    91→          </p>
+    92→    92→          <Button
+    93→    93→            onClick={() => setLoginOpen(true)}
+    94→    94→            className="mt-5 h-11 rounded-full bg-gradient-to-r from-fuchsia-600 to-orange-500 text-white font-bold px-6"
+    95→    95→          >
+    96→    96→            Se connecter avec Google
+    97→    97→          </Button>
+    98→    98→        </div>
+    99→    99→      </div>
+   100→   100→    );
+   101→   101→  }
+   102→   102→
+   103→   103→  if (!me.isSeller) {
+   104→   104→    return <BecomeSellerCard onDone={load} />;
+   105→   105→  }
+   106→   106→
+   107→   107→  if (loading || !data) {
+   108→   108→    return (
+   109→   109→      <div className="mx-3 sm:mx-6 py-12 text-center text-slate-500">
+   110→   110→        Chargement…
+   111→   111→      </div>
+   112→   112→    );
+   113→   113→  }
+   114→   114→
+   115→   115→  return (
+   116→   116→    <div className="mx-3 sm:mx-6 py-6 pb-12 space-y-6">
+   117→   117→      {/* Header */}
+   118→   118→      <div className="flex items-center justify-between flex-wrap gap-3">
+   119→   119→        <div>
+   120→   120→          <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900">
+   121→   121→            🏪 Mon espace vendeur
+   122→   122→          </h1>
+   123→   123→          <p className="text-slate-500 text-sm mt-1">
+   124→   124→            Bienvenue <strong>{me.username}</strong> ! Gère tes annonces, ton solde et tes retraits Wave.
+   125→   125→          </p>
+   126→   126→        </div>
+   127→   127→        <Button
+   128→   128→          onClick={() => setShowCreate(true)}
+   129→   129→          className="h-11 rounded-full bg-gradient-to-r from-fuchsia-600 to-orange-500 text-white font-bold px-5"
+   130→   130→        >
+   131→   131→          <Plus className="size-5" />
+   132→   132→          Publier une annonce
+   133→   133→        </Button>
+   134→   134→      </div>
+   135→   135→
+   136→   136→      {/* Stats */}
+   137→   137→      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+   138→   138→        <StatCard
+   139→   139→          icon={<Wallet className="size-5 text-emerald-600" />}
+   140→   140→          label="Solde disponible"
+   141→   141→          value={formatFCFA(data.balance)}
+   142→   142→          tint="bg-emerald-50"
+   143→   143→        />
+   144→   144→        <StatCard
+   145→   145→          icon={<TrendingUp className="size-5 text-sky-600" />}
+   146→   146→          label="Gains nets"
+   147→   147→          value={formatFCFA(data.totalEarnings)}
+   148→   148→          tint="bg-sky-50"
+   149→   149→        />
+   150→   150→        <StatCard
+   151→   151→          icon={<ArrowDownToLine className="size-5 text-violet-600" />}
+   152→   152→          label="Retiré"
+   153→   153→          value={formatFCFA(data.withdrawnTotal)}
+   154→   154→          tint="bg-violet-50"
+   155→   155→        />
+   156→   156→        <StatCard
+   157→   157→          icon={<Package className="size-5 text-fuchsia-600" />}
+   158→   158→          label="Annonces actives"
+   159→   159→          value={`${data.listings.filter((l) => l.active).length} / ${data.listings.length}`}
+   160→   160→          tint="bg-fuchsia-50"
+   161→   161→        />
+   162→   162→        <StatCard
+   163→   163→          icon={<Percent className="size-5 text-amber-600" />}
+   164→   164→          label="Commission 20%"
+   165→   165→          value={formatFCFA(data.totalCommission ?? 0)}
+   166→   166→          tint="bg-amber-50"
+   167→   167→        />
+   168→   168→      </div>
+   169→   169→
+   170→   170→      {/* Withdraw button */}
+   171→   171→      {data.balance > 0 && (
+   172→   172→        <div className="rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 p-5 text-white flex items-center justify-between gap-3">
+   173→   173→          <div className="flex items-center gap-3">
+   174→   174→            <div className="grid size-12 place-items-center rounded-xl bg-white/20 backdrop-blur">
+   175→   175→              <Wallet className="size-6" />
+   176→   176→            </div>
+   177→   177→            <div>
+   178→   178→              <p className="text-xs opacity-90 uppercase tracking-wide font-semibold">
+   179→   179→                Solde Wave
+   180→   180→              </p>
+   181→   181→              <p className="text-2xl font-extrabold">{formatFCFA(data.balance)}</p>
+   182→   182→            </div>
+   183→   183→          </div>
+   184→   184→          <Button
+   185→   185→            onClick={() => setShowWithdraw(true)}
+   186→   186→            className="bg-white text-emerald-700 hover:bg-white/90 font-bold rounded-full h-11 px-5"
+   187→   187→          >
+   188→   188→            <ArrowDownToLine className="size-4" />
+   189→   189→            Retirer vers Wave
+   190→   190→          </Button>
+   191→   191→        </div>
+   192→   192→      )}
+   193→   193→
+   194→   194→      {/* My listings */}
+   195→   195→      <section>
+   196→   196→        <h2 className="text-lg font-bold text-slate-900 mb-3">
+   197→   197→          📦 Mes annonces ({data.listings.length})
+   198→   198→        </h2>
+   199→   199→        {data.listings.length === 0 ? (
+   200→   200→          <div className="rounded-2xl border bg-white p-6 text-center text-slate-500">
+   201→   201→            Tu n'as pas encore d'annonce.
+   202→   202→            <br />
+   203→   203→            <Button
+   204→   204→              variant="ghost"
+   205→   205→              onClick={() => setShowCreate(true)}
+   206→   206→              className="mt-2 text-fuchsia-600 font-semibold"
+   207→   207→            >
+   208→   208→              Publier ma première annonce →
+   209→   209→            </Button>
+   210→   210→          </div>
+   211→   211→        ) : (
+   212→   212→          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+   213→   213→            {data.listings.map((l) => (
+   214→   214→              <SellerListingCard key={l.id} listing={l} onChanged={load} />
+   215→   215→            ))}
+   216→   216→          </div>
+   217→   217→        )}
+   218→   218→      </section>
+   219→   219→
+   220→   220→      {/* Recent earnings */}
+   221→   221→      {data.validatedOrders.length > 0 && (
+   222→   222→        <section>
+   223→   223→          <h2 className="text-lg font-bold text-slate-900 mb-3">
+   224→   224→            💰 Mes ventes ({data.validatedOrders.length})
+   225→   225→          </h2>
+   226→   226→          <div className="rounded-2xl border bg-white divide-y max-h-80 overflow-y-auto">
+   227→   227→            {data.validatedOrders.slice(0, 10).map((o) => (
+   228→   228→              <div key={o.id} className="flex items-center gap-3 p-3">
+   229→   229→                <div className="grid size-10 place-items-center rounded-xl bg-emerald-50">
+   230→   230→                  <CheckCircle2 className="size-5 text-emerald-600" />
+   231→   231→                </div>
+   232→   232→                <div className="flex-1 min-w-0">
+   233→   233→                  <p className="font-semibold text-slate-900 text-sm line-clamp-1">
+   234→   234→                    {o.listing?.title}
+   235→   235→                  </p>
+   236→   236→                  <p className="text-xs text-slate-500">
+   237→   237→                    {o.buyer?.username} ·{" "}
+   238→   238→                    {o.validatedAt
+   239→   239→                      ? new Date(o.validatedAt).toLocaleDateString("fr-FR")
+   240→   240→                      : ""}
+   241→   241→                  </p>
+   242→   242→                </div>
+   243→   243→                <div className="text-right">
+   244→   244→                  <p className="font-bold text-emerald-600 text-sm">
+   245→   245→                    +{formatFCFA(o.amount)}
+   246→   246→                  </p>
+   247→   247→                  {o.rating && (
+   248→   248→                    <div className="flex items-center justify-end gap-0.5 text-amber-400 text-xs">
+   249→   249→                      <Star className="size-3 fill-amber-400" />
+   250→   250→                      {o.rating.stars}/5
+   251→   251→                    </div>
+   252→   252→                  )}
+   253→   253→                </div>
+   254→   254→              </div>
+   255→   255→            ))}
+   256→   256→          </div>
+   257→   257→        </section>
+   258→   258→      )}
+   259→   259→
+   260→   260→      {/* Withdrawals history */}
+   261→   261→      {data.withdrawals.length > 0 && (
+   262→   262→        <section>
+   263→   263→          <h2 className="text-lg font-bold text-slate-900 mb-3">
+   264→   264→            🏧 Mes retraits ({data.withdrawals.length})
+   265→   265→          </h2>
+   266→   266→          <div className="rounded-2xl border bg-white divide-y">
+   267→   267→            {data.withdrawals.map((w) => (
+   268→   268→              <div key={w.id} className="flex items-center gap-3 p-3">
+   269→   269→                <div
+   270→   270→                  className={`grid size-10 place-items-center rounded-xl ${
+   271→   271→                    w.status === "COMPLETED"
+   272→   272→                      ? "bg-emerald-50"
+   273→   273→                      : w.status === "REJECTED"
+   274→   274→                      ? "bg-rose-50"
+   275→   275→                      : "bg-amber-50"
+   276→   276→                  }`}
+   277→   277→                >
+   278→   278→                  {w.status === "COMPLETED" ? (
+   279→   279→                    <CheckCircle2 className="size-5 text-emerald-600" />
+   280→   280→                  ) : (
+   281→   281→                    <Clock className="size-5 text-amber-500" />
+   282→   282→                  )}
+   283→   283→                </div>
+   284→   284→                <div className="flex-1 min-w-0">
+   285→   285→                  <p className="font-semibold text-slate-900 text-sm">
+   286→   286→                    {formatFCFA(w.amount)}
+   287→   287→                  </p>
+   288→   288→                  <p className="text-xs text-slate-500">
+   289→   289→                    Wave {w.waveNumber} ·{" "}
+   290→   290→                    {new Date(w.createdAt).toLocaleString("fr-FR", {
+   291→   291→                      day: "2-digit",
+   292→   292→                      month: "2-digit",
+   293→   293→                      hour: "2-digit",
+   294→   294→                      minute: "2-digit",
+   295→   295→                    })}
+   296→   296→                  </p>
+   297→   297→                </div>
+   298→   298→                <span
+   299→   299→                  className={`text-[11px] font-bold rounded-full px-2 py-0.5 ${
+   300→   300→                    w.status === "COMPLETED"
+   301→   301→                      ? "bg-emerald-100 text-emerald-700"
+   302→   302→                      : w.status === "REJECTED"
+   303→   303→                      ? "bg-rose-100 text-rose-700"
+   304→   304→                      : "bg-amber-100 text-amber-700"
+   305→   305→                  }`}
+   306→   306→                >
+   307→   307→                  {w.status === "COMPLETED"
+   308→   308→                    ? "Validé"
+   309→   309→                    : w.status === "REJECTED"
+   310→   310→                    ? "Refusé"
+   311→   311→                    : "En cours"}
+   312→   312→                </span>
+   313→   313→              </div>
+   314→   314→            ))}
+   315→   315→          </div>
+   316→   316→        </section>
+   317→   317→      )}
+   318→   318→
+   319→   319→      <CreateListingDialog
+   320→   320→        open={showCreate}
+   321→   321→        onClose={() => setShowCreate(false)}
+   322→   322→        games={games}
+   323→   323→        onCreated={() => {
+   324→   324→          setShowCreate(false);
+   325→   325→          load();
+   326→   326→        }}
+   327→   327→      />
+   328→   328→      <WithdrawDialog
+   329→   329→        open={showWithdraw}
+   330→   330→        onClose={() => setShowWithdraw(false)}
+   331→   331→        maxAmount={data.balance}
+   332→   332→        onDone={() => {
+   333→   333→          setShowWithdraw(false);
+   334→   334→          load();
+   335→   335→        }}
+   336→   336→      />
+   337→   337→    </div>
+   338→   338→  );
+   339→   339→}
+   340→   340→
+   341→   341→function StatCard({
+   342→   342→  icon,
+   343→   343→  label,
+   344→   344→  value,
+   345→   345→  tint,
+   346→   346→}: {
+   347→   347→  icon: React.ReactNode;
+   348→   348→  label: string;
+   349→   349→  value: string;
+   350→   350→  tint: string;
+   351→   351→}) {
+   352→   352→  return (
+   353→   353→    <div className="rounded-2xl border bg-white p-3 shadow-sm">
+   354→   354→      <div className={`grid size-9 place-items-center rounded-lg ${tint} mb-2`}>
+   355→   355→        {icon}
+   356→   356→      </div>
+   357→   357→      <p className="text-[11px] text-slate-500 font-medium">{label}</p>
+   358→   358→      <p className="font-bold text-slate-900 text-sm sm:text-base">{value}</p>
+   359→   359→    </div>
+   360→   360→  );
+   361→   361→}
+   362→   362→
+   363→   363→function BecomeSellerCard({ onDone }: { onDone: () => void }) {
+   364→   364→  const { me, setMe } = useAppStore();
+   365→   365→  const { toast } = useToast();
+   366→   366→  const [loading, setLoading] = useState(false);
+   367→   367→
+   368→   368→  async function become() {
+   369→   369→    if (!me) return;
+   370→   370→    setLoading(true);
+   371→   371→    try {
+   372→   372→      const r = await fetch("/api/seller/become", {
+   373→   373→        method: "POST",
+   374→   374→        headers: { "Content-Type": "application/json" },
+   375→   375→        body: JSON.stringify({ userId: me.id }),
+   376→   376→      });
+   377→   377→      if (!r.ok) throw new Error("Échec");
+   378→   378→      const d = await r.json();
+   379→   379→      if (d.user) setMe(d.user);
+   380→   380→      toast({ title: "Bienvenue vendeur ! 🎉" });
+   381→   381→      onDone();
+   382→   382→    } catch (e) {
+   383→   383→      toast({
+   384→   384→        title: "Erreur",
+   385→   385→        description: e instanceof Error ? e.message : "Erreur",
+   386→   386→        variant: "destructive",
+   387→   387→      });
+   388→   388→    } finally {
+   389→   389→      setLoading(false);
+   390→   390→    }
+   391→   391→  }
+   392→   392→
+   393→   393→  return (
+   394→   394→    <div className="mx-3 sm:mx-6 py-8">
+   395→   395→      <div className="rounded-3xl border bg-gradient-to-br from-fuchsia-50 via-white to-orange-50 p-8 text-center max-w-lg mx-auto">
+   396→   396→        <div className="mx-auto grid size-16 place-items-center rounded-2xl bg-gradient-to-br from-fuchsia-500 to-orange-400 text-white mb-4">
+   397→   397→          <Store className="size-8" />
+   398→   398→        </div>
+   399→   399→        <h2 className="text-2xl font-extrabold text-slate-900">
+   400→   400→          Deviens vendeur sur RobloxBoutik
+   401→   401→        </h2>
+   402→   402→        <p className="text-slate-500 mt-2">
+   403→   403→          Publie tes annonces Roblox, reçois tes paiements Wave automatiquement
+   404→   404→          quand l'acheteur valide, et retire ton solde quand tu veux.
+   405→   405→        </p>
+   406→   406→        <div className="mt-5 grid grid-cols-1 gap-2 text-left max-w-sm mx-auto">
+   407→   407→          <Perk text="Publie gratuitement tes annonces" />
+   408→   408→          <Perk text="Reçois l'argent après validation de l'acheteur (ou auto après 24h)" />
+   409→   409→          <Perk text="Retire ton solde vers Wave en 1 clic" />
+   410→   410→          <Perk text="Cumule des avis ⭐ pour gagner la confiance des acheteurs" />
+   411→   411→        </div>
+   412→   412→        <Button
+   413→   413→          onClick={become}
+   414→   414→          disabled={loading}
+   415→   415→          className="mt-6 h-12 rounded-full bg-gradient-to-r from-fuchsia-600 to-orange-500 text-white font-bold px-8"
+   416→   416→        >
+   417→   417→          {loading ? "Activation…" : "Activer mon compte vendeur"}
+   418→   418→        </Button>
+   419→   419→      </div>
+   420→   420→    </div>
+   421→   421→  );
+   422→   422→}
+   423→   423→
+   424→   424→function Perk({ text }: { text: string }) {
+   425→   425→  return (
+   426→   426→    <div className="flex items-start gap-2 text-sm text-slate-700">
+   427→   427→      <CheckCircle2 className="size-4 text-emerald-500 mt-0.5 shrink-0" />
+   428→   428→      <span>{text}</span>
+   429→   429→    </div>
+   430→   430→  );
+   431→   431→}
+   432→   432→
+   433→   433→function SellerListingCard({
+   434→   434→  listing,
+   435→   435→  onChanged,
+   436→   436→}: {
+   437→   437→  listing: Listing & { ratings: { stars: number }[]; orders: { id: string }[] };
+   438→   438→  onChanged: () => void;
+   439→   439→}) {
+   440→   440→  const { me } = useAppStore();
+   441→   441→  const { toast } = useToast();
+   442→   442→  const [busy, setBusy] = useState(false);
+   443→   443→
+   444→   444→  async function toggleActive() {
+   445→   445→    if (!me) return;
+   446→   446→    setBusy(true);
+   447→   447→    try {
+   448→   448→      const r = await fetch(`/api/listings/${listing.id}`, {
+   449→   449→        method: "PATCH",
+   450→   450→        headers: { "Content-Type": "application/json" },
+   451→   451→        body: JSON.stringify({ userId: me.id, active: !listing.active }),
+   452→   452→      });
+   453→   453→      if (!r.ok) throw new Error("Échec");
+   454→   454→      toast({
+   455→   455→        title: listing.active ? "Annonce masquée" : "Annonce publiée",
+   456→   456→      });
+   457→   457→      onChanged();
+   458→   458→    } catch (e) {
+   459→   459→      toast({
+   460→   460→        title: "Erreur",
+   461→   461→        description: e instanceof Error ? e.message : "Erreur",
+   462→   462→        variant: "destructive",
+   463→   463→      });
+   464→   464→    } finally {
+   465→   465→      setBusy(false);
+   466→   466→    }
+   467→   467→  }
+   468→   468→
+   469→   469→  async function remove() {
+   470→   470→    if (!me) return;
+   471→   471→    if (!confirm("Supprimer définitivement cette annonce ?")) return;
+   472→   472→    setBusy(true);
+   473→   473→    try {
+   474→   474→      const r = await fetch(`/api/listings/${listing.id}?userId=${me.id}`, {
+   475→   475→        method: "DELETE",
+   476→   476→      });
+   477→   477→      if (!r.ok) throw new Error("Échec");
+   478→   478→      toast({ title: "Annonce supprimée" });
+   479→   479→      onChanged();
+   480→   480→    } catch (e) {
+   481→   481→      toast({
+   482→   482→        title: "Erreur",
+   483→   483→        description: e instanceof Error ? e.message : "Erreur",
+   484→   484→        variant: "destructive",
+   485→   485→      });
+   486→   486→    } finally {
+   487→   487→      setBusy(false);
+   488→   488→    }
+   489→   489→  }
+   490→   490→
+   491→   491→  return (
+   492→   492→    <div className="rounded-2xl border bg-white p-3 shadow-sm flex gap-3">
+   493→   493→      <div className="grid size-16 place-items-center rounded-xl bg-gradient-to-br from-fuchsia-100 to-orange-100 text-3xl shrink-0">
+   494→   494→        🎮
+   495→   495→      </div>
+   496→   496→      <div className="flex-1 min-w-0">
+   497→   497→        <div className="flex items-start justify-between gap-2">
+   498→   498→          <h3 className="font-bold text-slate-900 text-sm line-clamp-1">
+   499→   499→            {listing.title}
+   500→   500→          </h3>
+   501→   501→          <span
+   502→   502→            className={`shrink-0 text-[10px] font-bold rounded-full px-2 py-0.5 ${
+   503→   503→              listing.active
+   504→   504→                ? "bg-emerald-100 text-emerald-700"
+   505→   505→                : "bg-slate-100 text-slate-500"
+   506→   506→            }`}
+   507→   507→          >
+   508→   508→            {listing.active ? "Active" : "Masquée"}
+   509→   509→          </span>
+   510→   510→        </div>
+   511→   511→        <p className="text-xs text-slate-500 mt-0.5 line-clamp-1">
+   512→   512→          {listing.game?.name}
+   513→   513→        </p>
+   514→   514→        <div className="flex items-center justify-between mt-1 gap-2">
+   515→   515→          <div className="flex flex-col">
+   516→   516→            <span className="font-bold text-fuchsia-600 text-sm tabular-nums">
+   517→   517→              {formatFCFA(listing.price)}
+   518→   518→              <span className="text-[10px] font-medium text-slate-400 ml-1">
+   519→   519→                acheteur
+   520→   520→              </span>
+   521→   521→            </span>
+   522→   522→            <span className="text-[11px] text-emerald-600 font-semibold tabular-nums">
+   523→   523→              Net : {formatFCFA(listing.sellerNetPrice ?? Math.round(listing.price / 1.2))}
+   524→   524→            </span>
+   525→   525→          </div>
+   526→   526→          <RatingBadge ratings={listing.ratings} />
+   527→   527→        </div>
+   528→   528→        <p className="text-[11px] text-slate-400 mt-1">
+   529→   529→          {listing.orders.length} commande{listing.orders.length > 1 ? "s" : ""}
+   530→   530→        </p>
+   531→   531→        <div className="flex gap-2 mt-2">
+   532→   532→          <Button
+   533→   533→            size="sm"
+   534→   534→            variant="outline"
+   535→   535→            onClick={toggleActive}
+   536→   536→            disabled={busy}
+   537→   537→            className="h-7 text-xs rounded-full"
+   538→   538→          >
+   539→   539→            {listing.active ? "Masquer" : "Activer"}
+   540→   540→          </Button>
+   541→   541→          <Button
+   542→   542→            size="sm"
+   543→   543→            variant="ghost"
+   544→   544→            onClick={remove}
+   545→   545→            disabled={busy}
+   546→   546→            className="h-7 text-xs rounded-full text-rose-500 hover:bg-rose-50"
+   547→   547→          >
+   548→   548→            <X className="size-3" />
+   549→   549→            Supprimer
+   550→   550→          </Button>
+   551→   551→        </div>
+   552→   552→      </div>
+   553→   553→    </div>
+   554→   554→  );
+   555→   555→}
+   556→   556→
+   557→   557→function CreateListingDialog({
+   558→   558→  open,
+   559→   559→  onClose,
+   560→   560→  games,
+   561→   561→  onCreated,
+   562→   562→}: {
+   563→   563→  open: boolean;
+   564→   564→  onClose: () => void;
+   565→   565→  games: Game[];
+   566→   566→  onCreated: () => void;
+   567→   567→}) {
+   568→   568→  const { me } = useAppStore();
+   569→   569→  const { toast } = useToast();
+   570→   570→  const [title, setTitle] = useState("");
+   571→   571→  const [description, setDescription] = useState("");
+   572→   572→  const [sellerNetPrice, setSellerNetPrice] = useState("");
+   573→   573→  const [gameId, setGameId] = useState("");
+   574→   574→  const [images, setImages] = useState<string[]>([]);
+   575→   575→  const [saving, setSaving] = useState(false);
+   576→   576→
+   577→   577→  function reset() {
+   578→   578→    setTitle("");
+   579→   579→    setDescription("");
+   580→   580→    setSellerNetPrice("");
+   581→   581→    setGameId("");
+   582→   582→    setImages([]);
+   583→   583→  }
+   584→   584→
+   585→   585→  // Compute buyer price and commission in real-time
+   586→   586→  const sellerNet = Number(sellerNetPrice) || 0;
+   587→   587→  const buyerPrice = Math.round(sellerNet * 1.2);
+   588→   588→  const commission = buyerPrice - sellerNet;
+   589→   589→
+   590→   590→  async function submit() {
+   591→   591→    if (!me) return;
+   592→   592→    if (!title.trim() || !description.trim() || !sellerNetPrice || !gameId) {
+   593→   593→      toast({
+   594→   594→        title: "Tous les champs sont requis",
+   595→   595→        variant: "destructive",
+   596→   596→      });
+   597→   597→      return;
+   598→   598→    }
+   599→   599→    setSaving(true);
+   600→   600→    try {
+   601→   601→      const r = await fetch("/api/seller/listings", {
+   602→   602→        method: "POST",
+   603→   603→        headers: { "Content-Type": "application/json" },
+   604→   604→        body: JSON.stringify({
+   605→   605→          userId: me.id,
+   606→   606→          gameId,
+   607→   607→          title: title.trim(),
+   608→   608→          description: description.trim(),
+   609→   609→          sellerNetPrice: Number(sellerNetPrice),
+   610→   610→          images: images.length > 0 ? JSON.stringify(images) : null,
+   611→   611→        }),
+   612→   612→      });
+   613→   613→      if (!r.ok) {
+   614→   614→        const e = await r.json().catch(() => ({}));
+   615→   615→        throw new Error(e.error ?? "Échec");
+   616→   616→      }
+   617→   617→      toast({ title: "Annonce publiée ! 🎉" });
+   618→   618→      reset();
+   619→   619→      onCreated();
+   620→   620→    } catch (e) {
+   621→   621→      toast({
+   622→   622→        title: "Erreur",
+   623→   623→        description: e instanceof Error ? e.message : "Erreur",
+   624→   624→        variant: "destructive",
+   625→   625→      });
+   626→   626→    } finally {
+   627→   627→      setSaving(false);
+   628→   628→    }
+   629→   629→  }
+   630→   630→
+   631→   631→  return (
+   632→   632→    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+   633→   633→      <DialogContent className="sm:max-w-md rounded-3xl max-h-[90vh] overflow-y-auto">
+   634→   634→        <DialogHeader>
+   635→   635→          <DialogTitle>Publier une annonce</DialogTitle>
+   636→   636→          <DialogDescription>
+   637→   637→            Décris bien ton objet pour attirer les acheteurs.
+   638→   638→          </DialogDescription>
+   639→   639→        </DialogHeader>
+   640→   640→
+   641→   641→        <div className="space-y-3">
+   642→   642→          <div>
+   643→   643→            <Label className="text-sm font-semibold">Jeu Roblox</Label>
+   644→   644→            <select
+   645→   645→              value={gameId}
+   646→   646→              onChange={(e) => setGameId(e.target.value)}
+   647→   647→              className="mt-1 w-full h-10 rounded-xl border border-input bg-background px-3 text-sm"
+   648→   648→            >
+   649→   649→              <option value="">Choisir un jeu…</option>
+   650→   650→              {games.map((g) => (
+   651→   651→                <option key={g.id} value={g.id}>
+   652→   652→                  {g.name}
+   653→   653→                </option>
+   654→   654→              ))}
+   655→   655→            </select>
+   656→   656→          </div>
+   657→   657→
+   658→   658→          {/* Image upload (Leboncoin-style) */}
+   659→   659→          <div>
+   660→   660→            <Label className="text-sm font-semibold flex items-center gap-1.5">
+   661→   661→              📸 Photos
+   662→   662→              <span className="text-[10px] font-medium text-slate-500 bg-slate-200 rounded-full px-2 py-0.5">
+   663→   663→                optionnel mais recommandé
+   664→   664→              </span>
+   665→   665→            </Label>
+   666→   666→            <div className="mt-2">
+   667→   667→              <ImageUpload images={images} onChange={setImages} />
+   668→   668→            </div>
+   669→   669→          </div>
+   670→   670→
+   671→   671→          <div>
+   672→   672→            <Label className="text-sm font-semibold">Titre</Label>
+   673→   673→            <Input
+   674→   674→              value={title}
+   675→   675→              onChange={(e) => setTitle(e.target.value)}
+   676→   676→              placeholder="Ex : Compte Blox Fruits niveau max"
+   677→   677→              className="mt-1 rounded-xl"
+   678→   678→              maxLength={80}
+   679→   679→            />
+   680→   680→          </div>
+   681→   681→          <div>
+   682→   682→            <Label className="text-sm font-semibold">Description</Label>
+   683→   683→            <Textarea
+   684→   684→              value={description}
+   685→   685→              onChange={(e) => setDescription(e.target.value)}
+   686→   686→              placeholder="Détails, niveau, objets inclus…"
+   687→   687→              className="mt-1 rounded-xl min-h-[80px]"
+   688→   688→              maxLength={500}
+   689→   689→            />
+   690→   690→          </div>
+   691→   691→          {/* TWO PRICE FIELDS — top: seller net, bottom: buyer price (auto +20%) */}
+   692→   692→          <div className="rounded-2xl bg-slate-50 p-3 space-y-3 border border-slate-200">
+   693→   693→            <div>
+   694→   694→              <Label className="text-sm font-semibold flex items-center gap-1.5">
+   695→   695→                💰 Ton prix net
+   696→   696→                <span className="text-[10px] font-medium text-slate-500 bg-slate-200 rounded-full px-2 py-0.5">
+   697→   697→                  ce que tu reçois
+   698→   698→                </span>
+   699→   699→              </Label>
+   700→   700→              <div className="relative mt-1">
+   701→   701→                <Input
+   702→   702→                  type="number"
+   703→   703→                  inputMode="numeric"
+   704→   704→                  value={sellerNetPrice}
+   705→   705→                  onChange={(e) => setSellerNetPrice(e.target.value)}
+   706→   706→                  placeholder="Ex : 2000"
+   707→   707→                  className="rounded-xl pr-16 text-lg font-bold h-12"
+   708→   708→                  min={100}
+   709→   709→                  max={1_000_000}
+   710→   710→                />
+   711→   711→                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">
+   712→   712→                  FCFA
+   713→   713→                </span>
+   714→   714→              </div>
+   715→   715→              <p className="text-[11px] text-slate-500 mt-1">
+   716→   716→                Entre 100 et 1 000 000 FCFA.
+   717→   717→              </p>
+   718→   718→            </div>
+   719→   719→
+   720→   720→            {/* Auto-computed buyer price (read-only) */}
+   721→   721→            <div className="rounded-xl bg-gradient-to-br from-fuchsia-50 to-orange-50 border border-fuchsia-200 p-3">
+   722→   722→              <Label className="text-[11px] font-bold uppercase tracking-wide text-fuchsia-700 flex items-center gap-1.5">
+   723→   723→                🛒 Prix affiché aux acheteurs
+   724→   724→                <span className="text-[10px] font-medium text-fuchsia-600 bg-fuchsia-100 rounded-full px-2 py-0.5 normal-case tracking-normal">
+   725→   725→                  +20% commission
+   726→   726→                </span>
+   727→   727→              </Label>
+   728→   728→              <div className="mt-1 flex items-baseline gap-2">
+   729→   729→                <span className="text-2xl font-extrabold text-fuchsia-700 tabular-nums">
+   730→   730→                  {buyerPrice > 0 ? formatFCFA(buyerPrice) : "—"}
+   731→   731→                </span>
+   732→   732→                {sellerNet > 0 && (
+   733→   733→                  <span className="text-[11px] text-slate-500">
+   734→   734→                    (commission plateforme : {formatFCFA(commission)})
+   735→   735→                  </span>
+   736→   736→                )}
+   737→   737→              </div>
+   738→   738→              <p className="text-[10px] text-slate-400 mt-1">
+   739→   739→                L'acheteur paie ce montant. Tu reçois ton prix net à la validation.
+   740→   740→              </p>
+   741→   741→            </div>
+   742→   742→          </div>
+   743→   743→        </div>
+   744→   744→
+   745→   745→        <DialogFooter className="gap-2">
+   746→   746→          <Button variant="ghost" onClick={onClose}>
+   747→   747→            Annuler
+   748→   748→          </Button>
+   749→   749→          <Button
+   750→   750→            disabled={saving}
+   751→   751→            onClick={submit}
+   752→   752→            className="bg-gradient-to-r from-fuchsia-600 to-orange-500 text-white font-bold rounded-full"
+   753→   753→          >
+   754→   754→            {saving ? "Publication…" : "Publier"}
+   755→   755→          </Button>
+   756→   756→        </DialogFooter>
+   757→   757→      </DialogContent>
+   758→   758→    </Dialog>
+   759→   759→  );
+   760→   760→}
+   761→   761→
+   762→   762→function WithdrawDialog({
+   763→   763→  open,
+   764→   764→  onClose,
+   765→   765→  maxAmount,
+   766→   766→  onDone,
+   767→   767→}: {
+   768→   768→  open: boolean;
+   769→   769→  onClose: () => void;
+   770→   770→  maxAmount: number;
+   771→   771→  onDone: () => void;
+   772→   772→}) {
+   773→   773→  const { me } = useAppStore();
+   774→   774→  const { toast } = useToast();
+   775→   775→  const [amount, setAmount] = useState("");
+   776→   776→  const [waveNumber, setWaveNumber] = useState("");
+   777→   777→  const [saving, setSaving] = useState(false);
+   778→   778→
+   779→   779→  function reset() {
+   780→   780→    setAmount("");
+   781→   781→    setWaveNumber("");
+   782→   782→  }
+   783→   783→
+   784→   784→  async function submit() {
+   785→   785→    if (!me) return;
+   786→   786→    const amt = Number(amount);
+   787→   787→    if (!amt || amt < 500) {
+   788→   788→      toast({
+   789→   789→        title: "Montant minimum : 500 FCFA",
+   790→   790→        variant: "destructive",
+   791→   791→      });
+   792→   792→      return;
+   793→   793→    }
+   794→   794→    if (amt > maxAmount) {
+   795→   795→      toast({
+   796→   796→        title: "Solde insuffisant",
+   797→   797→        variant: "destructive",
+   798→   798→      });
+   799→   799→      return;
+   800→   800→    }
+   801→   801→    if (!waveNumber.trim()) {
+   802→   802→      toast({
+   803→   803→        title: "Numéro Wave requis",
+   804→   804→        variant: "destructive",
+   805→   805→      });
+   806→   806→      return;
+   807→   807→    }
+   808→   808→    setSaving(true);
+   809→   809→    try {
+   810→   810→      const r = await fetch("/api/seller/withdrawals", {
+   811→   811→        method: "POST",
+   812→   812→        headers: { "Content-Type": "application/json" },
+   813→   813→        body: JSON.stringify({
+   814→   814→          userId: me.id,
+   815→   815→          amount: amt,
+   816→   816→          waveNumber: waveNumber.trim(),
+   817→   817→        }),
+   818→   818→      });
+   819→   819→      if (!r.ok) {
+   820→   820→        const e = await r.json().catch(() => ({}));
+   821→   821→        throw new Error(e.error ?? "Échec");
+   822→   822→      }
+   823→   823→      toast({
+   824→   824→        title: "Retrait demandé 🎉",
+   825→   825→        description: `${formatFCFA(amt)} sera envoyé sur ton Wave ${waveNumber.trim()}.`,
+   826→   826→      });
+   827→   827→      reset();
+   828→   828→      onDone();
+   829→   829→    } catch (e) {
+   830→   830→      toast({
+   831→   831→        title: "Erreur",
+   832→   832→        description: e instanceof Error ? e.message : "Erreur",
+   833→   833→        variant: "destructive",
+   834→   834→      });
+   835→   835→    } finally {
+   836→   836→      setSaving(false);
+   837→   837→    }
+   838→   838→  }
+   839→   839→
+   840→   840→  return (
+   841→   841→    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+   842→   842→      <DialogContent className="sm:max-w-md rounded-3xl overflow-hidden p-0 gap-0">
+   843→   843→        <VisuallyHidden asChild>
+   844→   844→          <DialogTitle>Retrait Wave</DialogTitle>
+   845→   845→        </VisuallyHidden>
+   846→   846→        <div className="bg-gradient-to-br from-sky-500 via-cyan-500 to-blue-600 px-6 py-5 text-white text-center">
+   847→   847→          <img
+   848→   848→            src="/wave-logo.png"
+   849→   849→            alt="Wave"
+   850→   850→            className="mx-auto size-12 object-contain mb-1"
+   851→   851→          />
+   852→   852→          <h2 className="text-xl font-extrabold">Retrait Wave</h2>
+   853→   853→          <p className="text-xs opacity-90">
+   854→   854→            Solde disponible : {formatFCFA(maxAmount)}
+   855→   855→          </p>
+   856→   856→        </div>
+   857→   857→
+   858→   858→        <div className="p-6 space-y-3">
+   859→   859→          <div>
+   860→   860→            <Label className="text-sm font-semibold">Montant (FCFA)</Label>
+   861→   861→            <Input
+   862→   862→              type="number"
+   863→   863→              inputMode="numeric"
+   864→   864→              value={amount}
+   865→   865→              onChange={(e) => setAmount(e.target.value)}
+   866→   866→              placeholder="Ex : 5000"
+   867→   867→              className="mt-1 rounded-xl h-12 text-lg font-bold"
+   868→   868→              min={500}
+   869→   869→              max={maxAmount}
+   870→   870→            />
+   871→   871→            <div className="flex gap-2 mt-2">
+   872→   872→              {[500, 1000, 5000, maxAmount].filter((v, i, a) => v > 0 && a.indexOf(v) === i).map((v) => (
+   873→   873→                <button
+   874→   874→                  key={v}
+   875→   875→                  onClick={() => setAmount(String(v))}
+   876→   876→                  className="text-xs px-2 py-1 rounded-full bg-slate-100 hover:bg-slate-200 font-medium"
+   877→   877→                >
+   878→   878→                  {v === maxAmount ? "Tout" : formatFCFA(v)}
+   879→   879→                </button>
+   880→   880→              ))}
+   881→   881→            </div>
+   882→   882→          </div>
+   883→   883→          <div>
+   884→   884→            <Label className="text-sm font-semibold">Numéro Wave</Label>
+   885→   885→            <Input
+   886→   886→              inputMode="tel"
+   887→   887→              value={waveNumber}
+   888→   888→              onChange={(e) => setWaveNumber(e.target.value)}
+   889→   889→              placeholder="Ex : 76 123 45 67"
+   890→   890→              className="mt-1 rounded-xl h-11"
+   891→   891→            />
+   892→   892→          </div>
+   893→   893→        </div>
+   894→   894→
+   895→   895→        <div className="px-6 pb-6 flex gap-2">
+   896→   896→          <Button variant="ghost" onClick={onClose} className="flex-1 rounded-full">
+   897→   897→            Annuler
+   898→   898→          </Button>
+   899→   899→          <Button
+   900→   900→            disabled={saving}
+   901→   901→            onClick={submit}
+   902→   902→            className="flex-1 bg-gradient-to-r from-sky-500 to-cyan-500 text-white font-bold rounded-full"
+   903→   903→          >
+   904→   904→            {saving ? "Envoi…" : "Confirmer le retrait"}
+   905→   905→          </Button>
+   906→   906→        </div>
+   907→   907→      </DialogContent>
+   908→   908→    </Dialog>
+   909→   909→  );
+   910→   910→}
+   911→   911→

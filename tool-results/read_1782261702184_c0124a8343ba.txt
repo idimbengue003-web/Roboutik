@@ -1,0 +1,911 @@
+     1→"use client";
+     2→
+     3→import { useAppStore } from "@/lib/store";
+     4→import { Button } from "@/components/ui/button";
+     5→import { Input } from "@/components/ui/input";
+     6→import { ImageUpload } from "@/components/shop/image-upload";
+     7→import { Label } from "@/components/ui/label";
+     8→import { Textarea } from "@/components/ui/textarea";
+     9→import {
+    10→  Dialog,
+    11→  DialogContent,
+    12→  DialogHeader,
+    13→  DialogTitle,
+    14→  DialogDescription,
+    15→  DialogFooter,
+    16→} from "@/components/ui/dialog";
+    17→import { VisuallyHidden } from "@/components/ui/visually-hidden";
+    18→import {
+    19→  Wallet,
+    20→  Plus,
+    21→  TrendingUp,
+    22→  ArrowDownToLine,
+    23→  Package,
+    24→  Star,
+    25→  Store,
+    26→  CheckCircle2,
+    27→  Clock,
+    28→  X,
+    29→  Percent,
+    30→} from "lucide-react";
+    31→import { useEffect, useState, useCallback } from "react";
+    32→import type { Listing, Order, User, Withdrawal, Game } from "@/lib/types";
+    33→import { formatFCFA } from "@/lib/types";
+    34→import { RatingBadge } from "./rating-modal";
+    35→import { useToast } from "@/hooks/use-toast";
+    36→
+    37→type SellerData = {
+    38→  user: User;
+    39→  balance: number;
+    40→  totalEarnings: number;
+    41→  totalCommission: number;
+    42→  totalGross: number;
+    43→  withdrawnTotal: number;
+    44→  pendingWithdrawals: number;
+    45→  available: number;
+    46→  validatedOrders: (Order & { rating?: { stars: number } | null })[];
+    47→  withdrawals: Withdrawal[];
+    48→  listings: (Listing & { ratings: { stars: number }[]; orders: { id: string }[] })[];
+    49→};
+    50→
+    51→export function SellerView() {
+    52→  const { me, setLoginOpen, games } = useAppStore();
+    53→  const { toast } = useToast();
+    54→
+    55→  const [data, setData] = useState<SellerData | null>(null);
+    56→  const [loading, setLoading] = useState(true);
+    57→  const [showCreate, setShowCreate] = useState(false);
+    58→  const [showWithdraw, setShowWithdraw] = useState(false);
+    59→
+    60→  const load = useCallback(async () => {
+    61→    if (!me) return;
+    62→    setLoading(true);
+    63→    try {
+    64→      const r = await fetch(`/api/seller/balance?userId=${me.id}`);
+    65→      if (!r.ok) return;
+    66→      const d = await r.json();
+    67→      setData(d);
+    68→    } finally {
+    69→      setLoading(false);
+    70→    }
+    71→  }, [me]);
+    72→
+    73→  useEffect(() => {
+    74→    load();
+    75→  }, [load]);
+    76→
+    77→  if (!me) {
+    78→    return (
+    79→      <div className="mx-3 sm:mx-6 py-12">
+    80→        <div className="rounded-3xl border bg-white p-8 sm:p-12 text-center">
+    81→          <div className="mx-auto grid size-16 place-items-center rounded-full bg-fuchsia-50 mb-4">
+    82→            <Store className="size-8 text-fuchsia-500" />
+    83→          </div>
+    84→          <h2 className="text-xl font-bold text-slate-900">
+    85→            Connecte-toi pour devenir vendeur
+    86→          </h2>
+    87→          <p className="text-slate-500 mt-2 max-w-md mx-auto">
+    88→            Tu veux vendre des objets Roblox ? Connecte-toi avec Google pour
+    89→            créer ton compte vendeur, publier des annonces et encaisser tes
+    90→            paiements Wave.
+    91→          </p>
+    92→          <Button
+    93→            onClick={() => setLoginOpen(true)}
+    94→            className="mt-5 h-11 rounded-full bg-gradient-to-r from-fuchsia-600 to-orange-500 text-white font-bold px-6"
+    95→          >
+    96→            Se connecter avec Google
+    97→          </Button>
+    98→        </div>
+    99→      </div>
+   100→    );
+   101→  }
+   102→
+   103→  if (!me.isSeller) {
+   104→    return <BecomeSellerCard onDone={load} />;
+   105→  }
+   106→
+   107→  if (loading || !data) {
+   108→    return (
+   109→      <div className="mx-3 sm:mx-6 py-12 text-center text-slate-500">
+   110→        Chargement…
+   111→      </div>
+   112→    );
+   113→  }
+   114→
+   115→  return (
+   116→    <div className="mx-3 sm:mx-6 py-6 pb-12 space-y-6">
+   117→      {/* Header */}
+   118→      <div className="flex items-center justify-between flex-wrap gap-3">
+   119→        <div>
+   120→          <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900">
+   121→            🏪 Mon espace vendeur
+   122→          </h1>
+   123→          <p className="text-slate-500 text-sm mt-1">
+   124→            Bienvenue <strong>{me.username}</strong> ! Gère tes annonces, ton solde et tes retraits Wave.
+   125→          </p>
+   126→        </div>
+   127→        <Button
+   128→          onClick={() => setShowCreate(true)}
+   129→          className="h-11 rounded-full bg-gradient-to-r from-fuchsia-600 to-orange-500 text-white font-bold px-5"
+   130→        >
+   131→          <Plus className="size-5" />
+   132→          Publier une annonce
+   133→        </Button>
+   134→      </div>
+   135→
+   136→      {/* Stats */}
+   137→      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+   138→        <StatCard
+   139→          icon={<Wallet className="size-5 text-emerald-600" />}
+   140→          label="Solde disponible"
+   141→          value={formatFCFA(data.balance)}
+   142→          tint="bg-emerald-50"
+   143→        />
+   144→        <StatCard
+   145→          icon={<TrendingUp className="size-5 text-sky-600" />}
+   146→          label="Gains nets"
+   147→          value={formatFCFA(data.totalEarnings)}
+   148→          tint="bg-sky-50"
+   149→        />
+   150→        <StatCard
+   151→          icon={<ArrowDownToLine className="size-5 text-violet-600" />}
+   152→          label="Retiré"
+   153→          value={formatFCFA(data.withdrawnTotal)}
+   154→          tint="bg-violet-50"
+   155→        />
+   156→        <StatCard
+   157→          icon={<Package className="size-5 text-fuchsia-600" />}
+   158→          label="Annonces actives"
+   159→          value={`${data.listings.filter((l) => l.active).length} / ${data.listings.length}`}
+   160→          tint="bg-fuchsia-50"
+   161→        />
+   162→        <StatCard
+   163→          icon={<Percent className="size-5 text-amber-600" />}
+   164→          label="Commission 20%"
+   165→          value={formatFCFA(data.totalCommission ?? 0)}
+   166→          tint="bg-amber-50"
+   167→        />
+   168→      </div>
+   169→
+   170→      {/* Withdraw button */}
+   171→      {data.balance > 0 && (
+   172→        <div className="rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 p-5 text-white flex items-center justify-between gap-3">
+   173→          <div className="flex items-center gap-3">
+   174→            <div className="grid size-12 place-items-center rounded-xl bg-white/20 backdrop-blur">
+   175→              <Wallet className="size-6" />
+   176→            </div>
+   177→            <div>
+   178→              <p className="text-xs opacity-90 uppercase tracking-wide font-semibold">
+   179→                Solde Wave
+   180→              </p>
+   181→              <p className="text-2xl font-extrabold">{formatFCFA(data.balance)}</p>
+   182→            </div>
+   183→          </div>
+   184→          <Button
+   185→            onClick={() => setShowWithdraw(true)}
+   186→            className="bg-white text-emerald-700 hover:bg-white/90 font-bold rounded-full h-11 px-5"
+   187→          >
+   188→            <ArrowDownToLine className="size-4" />
+   189→            Retirer vers Wave
+   190→          </Button>
+   191→        </div>
+   192→      )}
+   193→
+   194→      {/* My listings */}
+   195→      <section>
+   196→        <h2 className="text-lg font-bold text-slate-900 mb-3">
+   197→          📦 Mes annonces ({data.listings.length})
+   198→        </h2>
+   199→        {data.listings.length === 0 ? (
+   200→          <div className="rounded-2xl border bg-white p-6 text-center text-slate-500">
+   201→            Tu n'as pas encore d'annonce.
+   202→            <br />
+   203→            <Button
+   204→              variant="ghost"
+   205→              onClick={() => setShowCreate(true)}
+   206→              className="mt-2 text-fuchsia-600 font-semibold"
+   207→            >
+   208→              Publier ma première annonce →
+   209→            </Button>
+   210→          </div>
+   211→        ) : (
+   212→          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+   213→            {data.listings.map((l) => (
+   214→              <SellerListingCard key={l.id} listing={l} onChanged={load} />
+   215→            ))}
+   216→          </div>
+   217→        )}
+   218→      </section>
+   219→
+   220→      {/* Recent earnings */}
+   221→      {data.validatedOrders.length > 0 && (
+   222→        <section>
+   223→          <h2 className="text-lg font-bold text-slate-900 mb-3">
+   224→            💰 Mes ventes ({data.validatedOrders.length})
+   225→          </h2>
+   226→          <div className="rounded-2xl border bg-white divide-y max-h-80 overflow-y-auto">
+   227→            {data.validatedOrders.slice(0, 10).map((o) => (
+   228→              <div key={o.id} className="flex items-center gap-3 p-3">
+   229→                <div className="grid size-10 place-items-center rounded-xl bg-emerald-50">
+   230→                  <CheckCircle2 className="size-5 text-emerald-600" />
+   231→                </div>
+   232→                <div className="flex-1 min-w-0">
+   233→                  <p className="font-semibold text-slate-900 text-sm line-clamp-1">
+   234→                    {o.listing?.title}
+   235→                  </p>
+   236→                  <p className="text-xs text-slate-500">
+   237→                    {o.buyer?.username} ·{" "}
+   238→                    {o.validatedAt
+   239→                      ? new Date(o.validatedAt).toLocaleDateString("fr-FR")
+   240→                      : ""}
+   241→                  </p>
+   242→                </div>
+   243→                <div className="text-right">
+   244→                  <p className="font-bold text-emerald-600 text-sm">
+   245→                    +{formatFCFA(o.amount)}
+   246→                  </p>
+   247→                  {o.rating && (
+   248→                    <div className="flex items-center justify-end gap-0.5 text-amber-400 text-xs">
+   249→                      <Star className="size-3 fill-amber-400" />
+   250→                      {o.rating.stars}/5
+   251→                    </div>
+   252→                  )}
+   253→                </div>
+   254→              </div>
+   255→            ))}
+   256→          </div>
+   257→        </section>
+   258→      )}
+   259→
+   260→      {/* Withdrawals history */}
+   261→      {data.withdrawals.length > 0 && (
+   262→        <section>
+   263→          <h2 className="text-lg font-bold text-slate-900 mb-3">
+   264→            🏧 Mes retraits ({data.withdrawals.length})
+   265→          </h2>
+   266→          <div className="rounded-2xl border bg-white divide-y">
+   267→            {data.withdrawals.map((w) => (
+   268→              <div key={w.id} className="flex items-center gap-3 p-3">
+   269→                <div
+   270→                  className={`grid size-10 place-items-center rounded-xl ${
+   271→                    w.status === "COMPLETED"
+   272→                      ? "bg-emerald-50"
+   273→                      : w.status === "REJECTED"
+   274→                      ? "bg-rose-50"
+   275→                      : "bg-amber-50"
+   276→                  }`}
+   277→                >
+   278→                  {w.status === "COMPLETED" ? (
+   279→                    <CheckCircle2 className="size-5 text-emerald-600" />
+   280→                  ) : (
+   281→                    <Clock className="size-5 text-amber-500" />
+   282→                  )}
+   283→                </div>
+   284→                <div className="flex-1 min-w-0">
+   285→                  <p className="font-semibold text-slate-900 text-sm">
+   286→                    {formatFCFA(w.amount)}
+   287→                  </p>
+   288→                  <p className="text-xs text-slate-500">
+   289→                    Wave {w.waveNumber} ·{" "}
+   290→                    {new Date(w.createdAt).toLocaleString("fr-FR", {
+   291→                      day: "2-digit",
+   292→                      month: "2-digit",
+   293→                      hour: "2-digit",
+   294→                      minute: "2-digit",
+   295→                    })}
+   296→                  </p>
+   297→                </div>
+   298→                <span
+   299→                  className={`text-[11px] font-bold rounded-full px-2 py-0.5 ${
+   300→                    w.status === "COMPLETED"
+   301→                      ? "bg-emerald-100 text-emerald-700"
+   302→                      : w.status === "REJECTED"
+   303→                      ? "bg-rose-100 text-rose-700"
+   304→                      : "bg-amber-100 text-amber-700"
+   305→                  }`}
+   306→                >
+   307→                  {w.status === "COMPLETED"
+   308→                    ? "Validé"
+   309→                    : w.status === "REJECTED"
+   310→                    ? "Refusé"
+   311→                    : "En cours"}
+   312→                </span>
+   313→              </div>
+   314→            ))}
+   315→          </div>
+   316→        </section>
+   317→      )}
+   318→
+   319→      <CreateListingDialog
+   320→        open={showCreate}
+   321→        onClose={() => setShowCreate(false)}
+   322→        games={games}
+   323→        onCreated={() => {
+   324→          setShowCreate(false);
+   325→          load();
+   326→        }}
+   327→      />
+   328→      <WithdrawDialog
+   329→        open={showWithdraw}
+   330→        onClose={() => setShowWithdraw(false)}
+   331→        maxAmount={data.balance}
+   332→        onDone={() => {
+   333→          setShowWithdraw(false);
+   334→          load();
+   335→        }}
+   336→      />
+   337→    </div>
+   338→  );
+   339→}
+   340→
+   341→function StatCard({
+   342→  icon,
+   343→  label,
+   344→  value,
+   345→  tint,
+   346→}: {
+   347→  icon: React.ReactNode;
+   348→  label: string;
+   349→  value: string;
+   350→  tint: string;
+   351→}) {
+   352→  return (
+   353→    <div className="rounded-2xl border bg-white p-3 shadow-sm">
+   354→      <div className={`grid size-9 place-items-center rounded-lg ${tint} mb-2`}>
+   355→        {icon}
+   356→      </div>
+   357→      <p className="text-[11px] text-slate-500 font-medium">{label}</p>
+   358→      <p className="font-bold text-slate-900 text-sm sm:text-base">{value}</p>
+   359→    </div>
+   360→  );
+   361→}
+   362→
+   363→function BecomeSellerCard({ onDone }: { onDone: () => void }) {
+   364→  const { me, setMe } = useAppStore();
+   365→  const { toast } = useToast();
+   366→  const [loading, setLoading] = useState(false);
+   367→
+   368→  async function become() {
+   369→    if (!me) return;
+   370→    setLoading(true);
+   371→    try {
+   372→      const r = await fetch("/api/seller/become", {
+   373→        method: "POST",
+   374→        headers: { "Content-Type": "application/json" },
+   375→        body: JSON.stringify({ userId: me.id }),
+   376→      });
+   377→      if (!r.ok) throw new Error("Échec");
+   378→      const d = await r.json();
+   379→      if (d.user) setMe(d.user);
+   380→      toast({ title: "Bienvenue vendeur ! 🎉" });
+   381→      onDone();
+   382→    } catch (e) {
+   383→      toast({
+   384→        title: "Erreur",
+   385→        description: e instanceof Error ? e.message : "Erreur",
+   386→        variant: "destructive",
+   387→      });
+   388→    } finally {
+   389→      setLoading(false);
+   390→    }
+   391→  }
+   392→
+   393→  return (
+   394→    <div className="mx-3 sm:mx-6 py-8">
+   395→      <div className="rounded-3xl border bg-gradient-to-br from-fuchsia-50 via-white to-orange-50 p-8 text-center max-w-lg mx-auto">
+   396→        <div className="mx-auto grid size-16 place-items-center rounded-2xl bg-gradient-to-br from-fuchsia-500 to-orange-400 text-white mb-4">
+   397→          <Store className="size-8" />
+   398→        </div>
+   399→        <h2 className="text-2xl font-extrabold text-slate-900">
+   400→          Deviens vendeur sur RobloxBoutik
+   401→        </h2>
+   402→        <p className="text-slate-500 mt-2">
+   403→          Publie tes annonces Roblox, reçois tes paiements Wave automatiquement
+   404→          quand l'acheteur valide, et retire ton solde quand tu veux.
+   405→        </p>
+   406→        <div className="mt-5 grid grid-cols-1 gap-2 text-left max-w-sm mx-auto">
+   407→          <Perk text="Publie gratuitement tes annonces" />
+   408→          <Perk text="Reçois l'argent après validation de l'acheteur (ou auto après 24h)" />
+   409→          <Perk text="Retire ton solde vers Wave en 1 clic" />
+   410→          <Perk text="Cumule des avis ⭐ pour gagner la confiance des acheteurs" />
+   411→        </div>
+   412→        <Button
+   413→          onClick={become}
+   414→          disabled={loading}
+   415→          className="mt-6 h-12 rounded-full bg-gradient-to-r from-fuchsia-600 to-orange-500 text-white font-bold px-8"
+   416→        >
+   417→          {loading ? "Activation…" : "Activer mon compte vendeur"}
+   418→        </Button>
+   419→      </div>
+   420→    </div>
+   421→  );
+   422→}
+   423→
+   424→function Perk({ text }: { text: string }) {
+   425→  return (
+   426→    <div className="flex items-start gap-2 text-sm text-slate-700">
+   427→      <CheckCircle2 className="size-4 text-emerald-500 mt-0.5 shrink-0" />
+   428→      <span>{text}</span>
+   429→    </div>
+   430→  );
+   431→}
+   432→
+   433→function SellerListingCard({
+   434→  listing,
+   435→  onChanged,
+   436→}: {
+   437→  listing: Listing & { ratings: { stars: number }[]; orders: { id: string }[] };
+   438→  onChanged: () => void;
+   439→}) {
+   440→  const { me } = useAppStore();
+   441→  const { toast } = useToast();
+   442→  const [busy, setBusy] = useState(false);
+   443→
+   444→  async function toggleActive() {
+   445→    if (!me) return;
+   446→    setBusy(true);
+   447→    try {
+   448→      const r = await fetch(`/api/listings/${listing.id}`, {
+   449→        method: "PATCH",
+   450→        headers: { "Content-Type": "application/json" },
+   451→        body: JSON.stringify({ userId: me.id, active: !listing.active }),
+   452→      });
+   453→      if (!r.ok) throw new Error("Échec");
+   454→      toast({
+   455→        title: listing.active ? "Annonce masquée" : "Annonce publiée",
+   456→      });
+   457→      onChanged();
+   458→    } catch (e) {
+   459→      toast({
+   460→        title: "Erreur",
+   461→        description: e instanceof Error ? e.message : "Erreur",
+   462→        variant: "destructive",
+   463→      });
+   464→    } finally {
+   465→      setBusy(false);
+   466→    }
+   467→  }
+   468→
+   469→  async function remove() {
+   470→    if (!me) return;
+   471→    if (!confirm("Supprimer définitivement cette annonce ?")) return;
+   472→    setBusy(true);
+   473→    try {
+   474→      const r = await fetch(`/api/listings/${listing.id}?userId=${me.id}`, {
+   475→        method: "DELETE",
+   476→      });
+   477→      if (!r.ok) throw new Error("Échec");
+   478→      toast({ title: "Annonce supprimée" });
+   479→      onChanged();
+   480→    } catch (e) {
+   481→      toast({
+   482→        title: "Erreur",
+   483→        description: e instanceof Error ? e.message : "Erreur",
+   484→        variant: "destructive",
+   485→      });
+   486→    } finally {
+   487→      setBusy(false);
+   488→    }
+   489→  }
+   490→
+   491→  return (
+   492→    <div className="rounded-2xl border bg-white p-3 shadow-sm flex gap-3">
+   493→      <div className="grid size-16 place-items-center rounded-xl bg-gradient-to-br from-fuchsia-100 to-orange-100 text-3xl shrink-0">
+   494→        🎮
+   495→      </div>
+   496→      <div className="flex-1 min-w-0">
+   497→        <div className="flex items-start justify-between gap-2">
+   498→          <h3 className="font-bold text-slate-900 text-sm line-clamp-1">
+   499→            {listing.title}
+   500→          </h3>
+   501→          <span
+   502→            className={`shrink-0 text-[10px] font-bold rounded-full px-2 py-0.5 ${
+   503→              listing.active
+   504→                ? "bg-emerald-100 text-emerald-700"
+   505→                : "bg-slate-100 text-slate-500"
+   506→            }`}
+   507→          >
+   508→            {listing.active ? "Active" : "Masquée"}
+   509→          </span>
+   510→        </div>
+   511→        <p className="text-xs text-slate-500 mt-0.5 line-clamp-1">
+   512→          {listing.game?.name}
+   513→        </p>
+   514→        <div className="flex items-center justify-between mt-1 gap-2">
+   515→          <div className="flex flex-col">
+   516→            <span className="font-bold text-fuchsia-600 text-sm tabular-nums">
+   517→              {formatFCFA(listing.price)}
+   518→              <span className="text-[10px] font-medium text-slate-400 ml-1">
+   519→                acheteur
+   520→              </span>
+   521→            </span>
+   522→            <span className="text-[11px] text-emerald-600 font-semibold tabular-nums">
+   523→              Net : {formatFCFA(listing.sellerNetPrice ?? Math.round(listing.price / 1.2))}
+   524→            </span>
+   525→          </div>
+   526→          <RatingBadge ratings={listing.ratings} />
+   527→        </div>
+   528→        <p className="text-[11px] text-slate-400 mt-1">
+   529→          {listing.orders.length} commande{listing.orders.length > 1 ? "s" : ""}
+   530→        </p>
+   531→        <div className="flex gap-2 mt-2">
+   532→          <Button
+   533→            size="sm"
+   534→            variant="outline"
+   535→            onClick={toggleActive}
+   536→            disabled={busy}
+   537→            className="h-7 text-xs rounded-full"
+   538→          >
+   539→            {listing.active ? "Masquer" : "Activer"}
+   540→          </Button>
+   541→          <Button
+   542→            size="sm"
+   543→            variant="ghost"
+   544→            onClick={remove}
+   545→            disabled={busy}
+   546→            className="h-7 text-xs rounded-full text-rose-500 hover:bg-rose-50"
+   547→          >
+   548→            <X className="size-3" />
+   549→            Supprimer
+   550→          </Button>
+   551→        </div>
+   552→      </div>
+   553→    </div>
+   554→  );
+   555→}
+   556→
+   557→function CreateListingDialog({
+   558→  open,
+   559→  onClose,
+   560→  games,
+   561→  onCreated,
+   562→}: {
+   563→  open: boolean;
+   564→  onClose: () => void;
+   565→  games: Game[];
+   566→  onCreated: () => void;
+   567→}) {
+   568→  const { me } = useAppStore();
+   569→  const { toast } = useToast();
+   570→  const [title, setTitle] = useState("");
+   571→  const [description, setDescription] = useState("");
+   572→  const [sellerNetPrice, setSellerNetPrice] = useState("");
+   573→  const [gameId, setGameId] = useState("");
+   574→  const [images, setImages] = useState<string[]>([]);
+   575→  const [saving, setSaving] = useState(false);
+   576→
+   577→  function reset() {
+   578→    setTitle("");
+   579→    setDescription("");
+   580→    setSellerNetPrice("");
+   581→    setGameId("");
+   582→    setImages([]);
+   583→  }
+   584→
+   585→  // Compute buyer price and commission in real-time
+   586→  const sellerNet = Number(sellerNetPrice) || 0;
+   587→  const buyerPrice = Math.round(sellerNet * 1.2);
+   588→  const commission = buyerPrice - sellerNet;
+   589→
+   590→  async function submit() {
+   591→    if (!me) return;
+   592→    if (!title.trim() || !description.trim() || !sellerNetPrice || !gameId) {
+   593→      toast({
+   594→        title: "Tous les champs sont requis",
+   595→        variant: "destructive",
+   596→      });
+   597→      return;
+   598→    }
+   599→    setSaving(true);
+   600→    try {
+   601→      const r = await fetch("/api/seller/listings", {
+   602→        method: "POST",
+   603→        headers: { "Content-Type": "application/json" },
+   604→        body: JSON.stringify({
+   605→          userId: me.id,
+   606→          gameId,
+   607→          title: title.trim(),
+   608→          description: description.trim(),
+   609→          sellerNetPrice: Number(sellerNetPrice),
+   610→          images: images.length > 0 ? JSON.stringify(images) : null,
+   611→        }),
+   612→      });
+   613→      if (!r.ok) {
+   614→        const e = await r.json().catch(() => ({}));
+   615→        throw new Error(e.error ?? "Échec");
+   616→      }
+   617→      toast({ title: "Annonce publiée ! 🎉" });
+   618→      reset();
+   619→      onCreated();
+   620→    } catch (e) {
+   621→      toast({
+   622→        title: "Erreur",
+   623→        description: e instanceof Error ? e.message : "Erreur",
+   624→        variant: "destructive",
+   625→      });
+   626→    } finally {
+   627→      setSaving(false);
+   628→    }
+   629→  }
+   630→
+   631→  return (
+   632→    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+   633→      <DialogContent className="sm:max-w-md rounded-3xl max-h-[90vh] overflow-y-auto">
+   634→        <DialogHeader>
+   635→          <DialogTitle>Publier une annonce</DialogTitle>
+   636→          <DialogDescription>
+   637→            Décris bien ton objet pour attirer les acheteurs.
+   638→          </DialogDescription>
+   639→        </DialogHeader>
+   640→
+   641→        <div className="space-y-3">
+   642→          <div>
+   643→            <Label className="text-sm font-semibold">Jeu Roblox</Label>
+   644→            <select
+   645→              value={gameId}
+   646→              onChange={(e) => setGameId(e.target.value)}
+   647→              className="mt-1 w-full h-10 rounded-xl border border-input bg-background px-3 text-sm"
+   648→            >
+   649→              <option value="">Choisir un jeu…</option>
+   650→              {games.map((g) => (
+   651→                <option key={g.id} value={g.id}>
+   652→                  {g.name}
+   653→                </option>
+   654→              ))}
+   655→            </select>
+   656→          </div>
+   657→
+   658→          {/* Image upload (Leboncoin-style) */}
+   659→          <div>
+   660→            <Label className="text-sm font-semibold flex items-center gap-1.5">
+   661→              📸 Photos
+   662→              <span className="text-[10px] font-medium text-slate-500 bg-slate-200 rounded-full px-2 py-0.5">
+   663→                optionnel mais recommandé
+   664→              </span>
+   665→            </Label>
+   666→            <div className="mt-2">
+   667→              <ImageUpload images={images} onChange={setImages} />
+   668→            </div>
+   669→          </div>
+   670→
+   671→          <div>
+   672→            <Label className="text-sm font-semibold">Titre</Label>
+   673→            <Input
+   674→              value={title}
+   675→              onChange={(e) => setTitle(e.target.value)}
+   676→              placeholder="Ex : Compte Blox Fruits niveau max"
+   677→              className="mt-1 rounded-xl"
+   678→              maxLength={80}
+   679→            />
+   680→          </div>
+   681→          <div>
+   682→            <Label className="text-sm font-semibold">Description</Label>
+   683→            <Textarea
+   684→              value={description}
+   685→              onChange={(e) => setDescription(e.target.value)}
+   686→              placeholder="Détails, niveau, objets inclus…"
+   687→              className="mt-1 rounded-xl min-h-[80px]"
+   688→              maxLength={500}
+   689→            />
+   690→          </div>
+   691→          {/* TWO PRICE FIELDS — top: seller net, bottom: buyer price (auto +20%) */}
+   692→          <div className="rounded-2xl bg-slate-50 p-3 space-y-3 border border-slate-200">
+   693→            <div>
+   694→              <Label className="text-sm font-semibold flex items-center gap-1.5">
+   695→                💰 Ton prix net
+   696→                <span className="text-[10px] font-medium text-slate-500 bg-slate-200 rounded-full px-2 py-0.5">
+   697→                  ce que tu reçois
+   698→                </span>
+   699→              </Label>
+   700→              <div className="relative mt-1">
+   701→                <Input
+   702→                  type="number"
+   703→                  inputMode="numeric"
+   704→                  value={sellerNetPrice}
+   705→                  onChange={(e) => setSellerNetPrice(e.target.value)}
+   706→                  placeholder="Ex : 2000"
+   707→                  className="rounded-xl pr-16 text-lg font-bold h-12"
+   708→                  min={100}
+   709→                  max={1_000_000}
+   710→                />
+   711→                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">
+   712→                  FCFA
+   713→                </span>
+   714→              </div>
+   715→              <p className="text-[11px] text-slate-500 mt-1">
+   716→                Entre 100 et 1 000 000 FCFA.
+   717→              </p>
+   718→            </div>
+   719→
+   720→            {/* Auto-computed buyer price (read-only) */}
+   721→            <div className="rounded-xl bg-gradient-to-br from-fuchsia-50 to-orange-50 border border-fuchsia-200 p-3">
+   722→              <Label className="text-[11px] font-bold uppercase tracking-wide text-fuchsia-700 flex items-center gap-1.5">
+   723→                🛒 Prix affiché aux acheteurs
+   724→                <span className="text-[10px] font-medium text-fuchsia-600 bg-fuchsia-100 rounded-full px-2 py-0.5 normal-case tracking-normal">
+   725→                  +20% commission
+   726→                </span>
+   727→              </Label>
+   728→              <div className="mt-1 flex items-baseline gap-2">
+   729→                <span className="text-2xl font-extrabold text-fuchsia-700 tabular-nums">
+   730→                  {buyerPrice > 0 ? formatFCFA(buyerPrice) : "—"}
+   731→                </span>
+   732→                {sellerNet > 0 && (
+   733→                  <span className="text-[11px] text-slate-500">
+   734→                    (commission plateforme : {formatFCFA(commission)})
+   735→                  </span>
+   736→                )}
+   737→              </div>
+   738→              <p className="text-[10px] text-slate-400 mt-1">
+   739→                L'acheteur paie ce montant. Tu reçois ton prix net à la validation.
+   740→              </p>
+   741→            </div>
+   742→          </div>
+   743→        </div>
+   744→
+   745→        <DialogFooter className="gap-2">
+   746→          <Button variant="ghost" onClick={onClose}>
+   747→            Annuler
+   748→          </Button>
+   749→          <Button
+   750→            disabled={saving}
+   751→            onClick={submit}
+   752→            className="bg-gradient-to-r from-fuchsia-600 to-orange-500 text-white font-bold rounded-full"
+   753→          >
+   754→            {saving ? "Publication…" : "Publier"}
+   755→          </Button>
+   756→        </DialogFooter>
+   757→      </DialogContent>
+   758→    </Dialog>
+   759→  );
+   760→}
+   761→
+   762→function WithdrawDialog({
+   763→  open,
+   764→  onClose,
+   765→  maxAmount,
+   766→  onDone,
+   767→}: {
+   768→  open: boolean;
+   769→  onClose: () => void;
+   770→  maxAmount: number;
+   771→  onDone: () => void;
+   772→}) {
+   773→  const { me } = useAppStore();
+   774→  const { toast } = useToast();
+   775→  const [amount, setAmount] = useState("");
+   776→  const [waveNumber, setWaveNumber] = useState("");
+   777→  const [saving, setSaving] = useState(false);
+   778→
+   779→  function reset() {
+   780→    setAmount("");
+   781→    setWaveNumber("");
+   782→  }
+   783→
+   784→  async function submit() {
+   785→    if (!me) return;
+   786→    const amt = Number(amount);
+   787→    if (!amt || amt < 500) {
+   788→      toast({
+   789→        title: "Montant minimum : 500 FCFA",
+   790→        variant: "destructive",
+   791→      });
+   792→      return;
+   793→    }
+   794→    if (amt > maxAmount) {
+   795→      toast({
+   796→        title: "Solde insuffisant",
+   797→        variant: "destructive",
+   798→      });
+   799→      return;
+   800→    }
+   801→    if (!waveNumber.trim()) {
+   802→      toast({
+   803→        title: "Numéro Wave requis",
+   804→        variant: "destructive",
+   805→      });
+   806→      return;
+   807→    }
+   808→    setSaving(true);
+   809→    try {
+   810→      const r = await fetch("/api/seller/withdrawals", {
+   811→        method: "POST",
+   812→        headers: { "Content-Type": "application/json" },
+   813→        body: JSON.stringify({
+   814→          userId: me.id,
+   815→          amount: amt,
+   816→          waveNumber: waveNumber.trim(),
+   817→        }),
+   818→      });
+   819→      if (!r.ok) {
+   820→        const e = await r.json().catch(() => ({}));
+   821→        throw new Error(e.error ?? "Échec");
+   822→      }
+   823→      toast({
+   824→        title: "Retrait demandé 🎉",
+   825→        description: `${formatFCFA(amt)} sera envoyé sur ton Wave ${waveNumber.trim()}.`,
+   826→      });
+   827→      reset();
+   828→      onDone();
+   829→    } catch (e) {
+   830→      toast({
+   831→        title: "Erreur",
+   832→        description: e instanceof Error ? e.message : "Erreur",
+   833→        variant: "destructive",
+   834→      });
+   835→    } finally {
+   836→      setSaving(false);
+   837→    }
+   838→  }
+   839→
+   840→  return (
+   841→    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+   842→      <DialogContent className="sm:max-w-md rounded-3xl overflow-hidden p-0 gap-0">
+   843→        <VisuallyHidden asChild>
+   844→          <DialogTitle>Retrait Wave</DialogTitle>
+   845→        </VisuallyHidden>
+   846→        <div className="bg-gradient-to-br from-sky-500 via-cyan-500 to-blue-600 px-6 py-5 text-white text-center">
+   847→          <img
+   848→            src="/wave-logo.png"
+   849→            alt="Wave"
+   850→            className="mx-auto size-12 object-contain mb-1"
+   851→          />
+   852→          <h2 className="text-xl font-extrabold">Retrait Wave</h2>
+   853→          <p className="text-xs opacity-90">
+   854→            Solde disponible : {formatFCFA(maxAmount)}
+   855→          </p>
+   856→        </div>
+   857→
+   858→        <div className="p-6 space-y-3">
+   859→          <div>
+   860→            <Label className="text-sm font-semibold">Montant (FCFA)</Label>
+   861→            <Input
+   862→              type="number"
+   863→              inputMode="numeric"
+   864→              value={amount}
+   865→              onChange={(e) => setAmount(e.target.value)}
+   866→              placeholder="Ex : 5000"
+   867→              className="mt-1 rounded-xl h-12 text-lg font-bold"
+   868→              min={500}
+   869→              max={maxAmount}
+   870→            />
+   871→            <div className="flex gap-2 mt-2">
+   872→              {[500, 1000, 5000, maxAmount].filter((v, i, a) => v > 0 && a.indexOf(v) === i).map((v) => (
+   873→                <button
+   874→                  key={v}
+   875→                  onClick={() => setAmount(String(v))}
+   876→                  className="text-xs px-2 py-1 rounded-full bg-slate-100 hover:bg-slate-200 font-medium"
+   877→                >
+   878→                  {v === maxAmount ? "Tout" : formatFCFA(v)}
+   879→                </button>
+   880→              ))}
+   881→            </div>
+   882→          </div>
+   883→          <div>
+   884→            <Label className="text-sm font-semibold">Numéro Wave</Label>
+   885→            <Input
+   886→              inputMode="tel"
+   887→              value={waveNumber}
+   888→              onChange={(e) => setWaveNumber(e.target.value)}
+   889→              placeholder="Ex : 76 123 45 67"
+   890→              className="mt-1 rounded-xl h-11"
+   891→            />
+   892→          </div>
+   893→        </div>
+   894→
+   895→        <div className="px-6 pb-6 flex gap-2">
+   896→          <Button variant="ghost" onClick={onClose} className="flex-1 rounded-full">
+   897→            Annuler
+   898→          </Button>
+   899→          <Button
+   900→            disabled={saving}
+   901→            onClick={submit}
+   902→            className="flex-1 bg-gradient-to-r from-sky-500 to-cyan-500 text-white font-bold rounded-full"
+   903→          >
+   904→            {saving ? "Envoi…" : "Confirmer le retrait"}
+   905→          </Button>
+   906→        </div>
+   907→      </DialogContent>
+   908→    </Dialog>
+   909→  );
+   910→}
+   911→

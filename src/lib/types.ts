@@ -108,6 +108,7 @@ export type Listing = {
   price: number;
   // images: JSON string array of base64 data URLs (max 4)
   images: string | null;
+  stock: number;
   active: boolean;
   createdAt: string;
   sellerId: string;

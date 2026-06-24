@@ -6,6 +6,7 @@ import { ArrowLeft, Store, ChevronRight, MessageCircle, Flag } from "lucide-reac
 import type { Listing } from "@/lib/types";
 import { formatFCFA, getListingImages } from "@/lib/types";
 import { useEffect, useState, useCallback } from "react";
+import Link from "next/link";
 import { ListingSearch, emptyFilter, type FilterState } from "./search-and-rating";
 import { RatingBadge } from "./rating-modal";
 
@@ -203,9 +204,15 @@ function ListingCard({
 }) {
   const images = getListingImages(listing);
   const firstImage = images[0];
+  const stock = typeof listing.stock === "number" ? listing.stock : 1;
+  const outOfStock = stock <= 0;
+  const lowStock = stock > 0 && stock <= 3;
 
   return (
-    <div className="flex flex-col rounded-2xl border bg-white shadow-sm overflow-hidden hover:shadow-md transition-shadow">
+    <Link
+      href={`/listing/${listing.id}`}
+      className="flex flex-col rounded-2xl border bg-white shadow-sm overflow-hidden hover:shadow-md transition-shadow cursor-pointer"
+    >
       {/* Image area: show first uploaded photo, or fallback gradient + emoji */}
       <div className="aspect-video relative overflow-hidden">
         {firstImage ? (
@@ -234,6 +241,7 @@ function ListingCard({
         {/* Discreet report button (top-right) */}
         <button
           onClick={(e) => {
+            e.preventDefault();
             e.stopPropagation();
             onReport();
           }}
@@ -269,16 +277,34 @@ function ListingCard({
           <Store className="size-3.5 text-emerald-500" />
         </div>
 
-        <div className="mt-3 flex items-center justify-between">
+        <div className="mt-3 flex items-center justify-between gap-2 flex-wrap">
           <span className="font-extrabold text-fuchsia-600 text-lg">
             {formatFCFA(listing.price)}
           </span>
+          {/* Stock indicator */}
+          {outOfStock ? (
+            <span className="text-[11px] font-bold text-rose-600">
+              Rupture de stock
+            </span>
+          ) : lowStock ? (
+            <span className="text-[11px] font-bold text-amber-600">
+              Plus que {stock} en stock !
+            </span>
+          ) : (
+            <span className="text-[11px] font-bold text-emerald-600">
+              {stock} en stock
+            </span>
+          )}
         </div>
 
         {/* Two buttons: Contact seller + Buy */}
         <div className="mt-2 flex gap-2">
           <Button
-            onClick={onContact}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onContact();
+            }}
             variant="outline"
             className="flex-1 h-10 rounded-full border-emerald-300 text-emerald-700 hover:bg-emerald-50 font-semibold text-sm"
           >
@@ -286,16 +312,21 @@ function ListingCard({
             Message
           </Button>
           <Button
-            onClick={onBuy}
-            className="flex-1 h-10 rounded-full bg-gradient-to-r from-sky-500 to-cyan-500 hover:from-sky-600 hover:to-cyan-600 text-white font-bold shadow-md hover:shadow-lg text-sm"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onBuy();
+            }}
+            disabled={outOfStock}
+            className="flex-1 h-10 rounded-full bg-gradient-to-r from-sky-500 to-cyan-500 hover:from-sky-600 hover:to-cyan-600 text-white font-bold shadow-md hover:shadow-lg text-sm disabled:opacity-60 disabled:cursor-not-allowed"
           >
             <span className="size-4 rounded-full bg-white/20 grid place-items-center text-[10px] font-bold">
               W
             </span>
-            Acheter
+            {outOfStock ? "Rupture" : "Acheter"}
           </Button>
         </div>
       </div>
-    </div>
+    </Link>
   );
 }
