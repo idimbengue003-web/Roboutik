@@ -4,6 +4,7 @@ import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { useAppStore } from "@/lib/store";
+import { ContactSellerDialog } from "@/components/shop/messages-view";
 import { formatFCFA, getListingImages } from "@/lib/types";
 import {
   ArrowLeft,
@@ -44,11 +45,15 @@ export default function SellerProfilePage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = React.use(params);
-  const { me, setLoginOpen, setContactListing } = useAppStore();
+  const { me, setLoginOpen } = useAppStore();
   const [data, setData] = useState<SellerProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [tab, setTab] = useState<"listings" | "reviews" | "sales">("listings");
+  const [contactTarget, setContactTarget] = useState<{
+    listingId: string;
+    listingTitle: string;
+  } | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -150,8 +155,8 @@ export default function SellerProfilePage({
           </div>
         </div>
 
-        {/* Quick stats */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-5 pt-5 border-t border-white/20">
+        {/* Quick stats (no revenue shown publicly) */}
+        <div className="grid grid-cols-3 gap-3 mt-5 pt-5 border-t border-white/20">
           <div>
             <p className="text-[11px] opacity-80 uppercase tracking-wide">
               Ventes
@@ -177,14 +182,6 @@ export default function SellerProfilePage({
               Annonces
             </p>
             <p className="text-xl font-extrabold">{stats.totalListings}</p>
-          </div>
-          <div>
-            <p className="text-[11px] opacity-80 uppercase tracking-wide">
-              Chiffre d'affaires
-            </p>
-            <p className="text-xl font-extrabold">
-              {formatFCFA(stats.totalGross)}
-            </p>
           </div>
         </div>
       </div>
@@ -454,9 +451,10 @@ export default function SellerProfilePage({
                     )}
                   </div>
                   <div className="text-right shrink-0">
-                    <p className="font-bold text-emerald-600 text-sm">
-                      +{formatFCFA(o.amount)}
-                    </p>
+                    <span className="inline-flex items-center gap-1 text-[10px] font-bold rounded-full bg-emerald-100 text-emerald-700 px-2 py-0.5">
+                      <TrendingUp className="size-3" />
+                      Vendu
+                    </span>
                   </div>
                 </div>
               ))}
@@ -465,7 +463,7 @@ export default function SellerProfilePage({
         </div>
       )}
 
-      {/* Contact button (only if not own profile) */}
+      {/* Contact button (only if not own profile) — opens local dialog */}
       {!isOwn && listings.length > 0 && (
         <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-30 w-full max-w-md px-4">
           <Button
@@ -475,10 +473,9 @@ export default function SellerProfilePage({
                 return;
               }
               const first = listings[0];
-              setContactListing({
-                id: first.id,
-                title: first.title,
-                sellerName: seller.username,
+              setContactTarget({
+                listingId: first.id,
+                listingTitle: first.title,
               });
             }}
             className="w-full h-12 rounded-full bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white font-bold shadow-lg"
@@ -488,6 +485,16 @@ export default function SellerProfilePage({
           </Button>
         </div>
       )}
+
+      {/* Local ContactSellerDialog — mounted here so it works on this route */}
+      <ContactSellerDialog
+        listingId={contactTarget?.listingId ?? ""}
+        listingTitle={contactTarget?.listingTitle ?? ""}
+        sellerName={seller.username}
+        open={!!contactTarget}
+        onClose={() => setContactTarget(null)}
+        onStarted={() => setContactTarget(null)}
+      />
     </div>
   );
 }
