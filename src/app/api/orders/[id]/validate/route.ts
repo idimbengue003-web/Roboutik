@@ -30,9 +30,7 @@ export async function POST(
     }
 
     const now = new Date();
-    // Credit seller with NET amount (excl. commission). Commission is kept by the platform.
     const netAmount = order.sellerNetAmount;
-    const commission = order.amount - netAmount;
     await db.$transaction([
       db.order.update({
         where: { id },
@@ -46,7 +44,7 @@ export async function POST(
         data: {
           orderId: order.id,
           senderId: order.sellerId,
-          content: `🛡️ ROBLOX BOUTIK — Commande validée. Le vendeur a reçu ${netAmount} FCFA (montant net après commission de 16%, soit ${commission} FCFA conservés par la plateforme). Merci pour votre achat !`,
+          content: `🛡️ ROBLOX BOUTIK — Commande validée. Le vendeur a reçu ${netAmount} FCFA sur son solde. Merci pour votre achat !`,
           isAuto: true,
         },
       }),

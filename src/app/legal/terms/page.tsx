@@ -80,9 +80,8 @@ export default function TermsPage() {
           <section className="space-y-2">
             <h2 className="text-lg font-bold text-slate-900">Article 5 — Transactions et paiements</h2>
             <p className="text-sm text-slate-700">
-              Les paiements s'effectuent via Wave Business. Le montant payé par l'acheteur inclut
-              une commission de 16% prélevée par la plateforme. Le vendeur reçoit le montant net
-              (prix vendeur) à la validation de la commande.
+              Les paiements s'effectuent via Wave Business. Le vendeur reçoit le montant
+              correspondant à son annonce à la validation de la commande.
             </p>
             <p className="text-sm text-slate-700">
               La commande se valide automatiquement 24 heures après le paiement si l'acheteur
@@ -96,14 +95,10 @@ export default function TermsPage() {
           </section>
 
           <section className="space-y-2">
-            <h2 className="text-lg font-bold text-slate-900">Article 6 — Commission</h2>
+            <h2 className="text-lg font-bold text-slate-900">Article 6 — Modèle économique</h2>
             <p className="text-sm text-slate-700">
-              La commission de Roboutik est de 16% du prix net vendeur. Elle est calculée
-              automatiquement à la création de l'annonce :
-              prix affiché à l'acheteur = prix net vendeur (la commission de 16% est prélevée sur le montant reçu par le vendeur).
-            </p>
-            <p className="text-sm text-slate-700">
-              Cette commission finance le développement, l'hébergement, le support
+              Roboutik prélève une participation sur les ventes réalisées via la plateforme.
+              Cette participation finance le développement, l'hébergement, le support
               et la sécurité de la plateforme.
             </p>
           </section>

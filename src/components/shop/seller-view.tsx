@@ -811,10 +811,8 @@ function CreateListingDialog({
     setImages([]);
   }
 
-  // Compute buyer price and commission in real-time
-  const sellerNet = Number(sellerNetPrice) || 0;
-  const buyerPrice = Math.round(sellerNet * 1.2);
-  const commission = buyerPrice - sellerNet;
+  // Single price field = what buyer pays. Seller net is computed server-side.
+  const buyerPrice = Number(sellerNetPrice) || 0;
 
   async function submit() {
     if (!me) return;
@@ -917,57 +915,27 @@ function CreateListingDialog({
               maxLength={500}
             />
           </div>
-          {/* TWO PRICE FIELDS — top: seller net, bottom: buyer price (auto +20%) */}
-          <div className="rounded-2xl bg-slate-50 p-3 space-y-3 border border-slate-200">
-            <div>
-              <Label className="text-sm font-semibold flex items-center gap-1.5">
-                💰 Ton prix net
-                <span className="text-[10px] font-medium text-slate-500 bg-slate-200 rounded-full px-2 py-0.5">
-                  ce que tu reçois
-                </span>
-              </Label>
-              <div className="relative mt-1">
-                <Input
-                  type="number"
-                  inputMode="numeric"
-                  value={sellerNetPrice}
-                  onChange={(e) => setSellerNetPrice(e.target.value)}
-                  placeholder="Ex : 2000"
-                  className="rounded-xl pr-16 text-lg font-bold h-12"
-                  min={100}
-                  max={1_000_000}
-                />
-                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">
-                  FCFA
-                </span>
-              </div>
-              <p className="text-[11px] text-slate-500 mt-1">
-                Entre 100 et 1 000 000 FCFA.
-              </p>
+          {/* SINGLE PRICE FIELD — what the buyer pays. Seller net is private. */}
+          <div>
+            <Label className="text-sm font-semibold">Prix (FCFA)</Label>
+            <div className="relative mt-1">
+              <Input
+                type="number"
+                inputMode="numeric"
+                value={sellerNetPrice}
+                onChange={(e) => setSellerNetPrice(e.target.value)}
+                placeholder="Ex : 2000"
+                className="rounded-xl pr-16 text-lg font-bold h-12"
+                min={100}
+                max={1_000_000}
+              />
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">
+                FCFA
+              </span>
             </div>
-
-            {/* Auto-computed buyer price (read-only) */}
-            <div className="rounded-xl bg-gradient-to-br from-fuchsia-50 to-orange-50 border border-fuchsia-200 p-3">
-              <Label className="text-[11px] font-bold uppercase tracking-wide text-fuchsia-700 flex items-center gap-1.5">
-                🛒 Prix affiché aux acheteurs
-                <span className="text-[10px] font-medium text-fuchsia-600 bg-fuchsia-100 rounded-full px-2 py-0.5 normal-case tracking-normal">
-                  +16% commission
-                </span>
-              </Label>
-              <div className="mt-1 flex items-baseline gap-2">
-                <span className="text-2xl font-extrabold text-fuchsia-700 tabular-nums">
-                  {buyerPrice > 0 ? formatFCFA(buyerPrice) : "—"}
-                </span>
-                {sellerNet > 0 && (
-                  <span className="text-[11px] text-slate-500">
-                    (commission plateforme : {formatFCFA(commission)})
-                  </span>
-                )}
-              </div>
-              <p className="text-[10px] text-slate-400 mt-1">
-                L'acheteur paie ce montant. Tu reçois ton prix net à la validation.
-              </p>
-            </div>
+            <p className="text-[11px] text-slate-500 mt-1">
+              Prix affiché aux acheteurs. Entre 100 et 1 000 000 FCFA.
+            </p>
           </div>
         </div>
 
