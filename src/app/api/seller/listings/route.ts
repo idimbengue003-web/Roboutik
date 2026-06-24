@@ -73,9 +73,11 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Compute buyer price = seller net price (no commission)
-    const buyerPrice = sellerNetPrice;
-    const commission = buyerPrice - sellerNetPrice;
+    // Compute buyer price = seller input (what seller wants to charge buyer)
+    // Commission: 20% kept by platform, seller receives 80% of buyer price
+    const buyerPrice = sellerNetPrice; // displayed price = what buyer pays
+    const sellerNet = Math.round(sellerNetPrice * 0.8); // seller receives 80%
+    const commission = buyerPrice - sellerNet;
 
     // Extract stock (default 1, min 0, max 9999)
     const rawStock = (body as Record<string, unknown>)?.stock;
@@ -116,7 +118,7 @@ export async function POST(req: NextRequest) {
         gameId,
         title,
         description,
-        sellerNetPrice,
+        sellerNetPrice: sellerNet, // 80% of buyer price (commission = 20%)
         price: buyerPrice,
         images: imagesJson,
         stock,
