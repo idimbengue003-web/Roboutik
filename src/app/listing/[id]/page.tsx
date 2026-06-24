@@ -6,6 +6,8 @@ import { useAppStore } from "@/lib/store";
 import { formatFCFA, getListingImages } from "@/lib/types";
 import type { Listing } from "@/lib/types";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   ArrowLeft,
   MessageCircle,
@@ -15,6 +17,7 @@ import {
   X,
   ChevronLeft,
   ChevronRight,
+  ShieldCheck,
 } from "lucide-react";
 
 export default function ListingDetailPage({
@@ -35,6 +38,7 @@ export default function ListingDetailPage({
   const [notFound, setNotFound] = useState(false);
   const [enlarged, setEnlarged] = useState<string | null>(null);
   const [activeIdx, setActiveIdx] = useState(0);
+  const [gameName, setGameName] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -125,8 +129,6 @@ export default function ListingDetailPage({
   }
 
   const images = getListingImages(listing);
-  const stock = typeof listing.stock === "number" ? listing.stock : 1;
-  const outOfStock = stock <= 0;
   const seller = listing.seller;
   const game = listing.game;
 
@@ -158,7 +160,6 @@ export default function ListingDetailPage({
               </div>
             )}
 
-            {/* Prev / next arrows when multiple images */}
             {images.length > 1 && (
               <>
                 <button
@@ -216,42 +217,20 @@ export default function ListingDetailPage({
         {/* Info column */}
         <div className="flex flex-col">
           {game && (
-            <Link
-              href="/"
-              className="inline-flex w-fit items-center gap-1.5 rounded-full bg-fuchsia-50 px-3 py-1 text-xs font-bold text-fuchsia-700 hover:bg-fuchsia-100 mb-2"
-              onClick={(e) => e.stopPropagation()}
-            >
+            <span className="inline-flex w-fit items-center gap-1.5 rounded-full bg-fuchsia-50 px-3 py-1 text-xs font-bold text-fuchsia-700 mb-2">
               <Store className="size-3.5" />
               {game.name}
-            </Link>
+            </span>
           )}
 
           <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 leading-tight">
             {listing.title}
           </h1>
 
-          <div className="mt-3 flex items-baseline gap-2 flex-wrap">
+          <div className="mt-3">
             <span className="text-3xl font-extrabold text-fuchsia-600">
               {formatFCFA(listing.price)}
             </span>
-            {/* Stock indicator */}
-            {outOfStock ? (
-              <span className="text-sm font-bold text-rose-600 bg-rose-50 rounded-full px-2.5 py-0.5">
-                Rupture de stock
-              </span>
-            ) : (
-              <span
-                className={`text-xs font-bold rounded-full px-2.5 py-0.5 ${
-                  stock <= 3
-                    ? "text-amber-700 bg-amber-50"
-                    : "text-emerald-700 bg-emerald-50"
-                }`}
-              >
-                {stock <= 3
-                  ? `Plus que ${stock} en stock !`
-                  : `${stock} en stock`}
-              </span>
-            )}
           </div>
 
           {/* Seller info */}
@@ -288,28 +267,55 @@ export default function ListingDetailPage({
             </p>
           </div>
 
-          {/* Action buttons */}
-          <div className="mt-6 flex flex-col sm:flex-row gap-3">
-            <Button
-              type="button"
-              onClick={contact}
-              variant="outline"
-              className="flex-1 h-12 rounded-full border-emerald-300 text-emerald-700 hover:bg-emerald-50 font-semibold"
-            >
-              <MessageCircle className="size-5" />
-              Message
-            </Button>
-            <Button
-              type="button"
-              onClick={buy}
-              disabled={outOfStock}
-              className="flex-1 h-12 rounded-full bg-gradient-to-r from-sky-500 to-cyan-500 hover:from-sky-600 hover:to-cyan-600 text-white font-bold shadow-md hover:shadow-lg disabled:opacity-60 disabled:cursor-not-allowed"
-            >
-              <span className="size-5 rounded-full bg-white/20 grid place-items-center text-[11px] font-bold">
-                W
-              </span>
-              {outOfStock ? "Rupture de stock" : "Acheter avec Wave"}
-            </Button>
+          {/* Buy section: game name input + Wave button */}
+          <div className="mt-6 rounded-2xl border-2 border-sky-100 bg-sky-50/50 p-4 space-y-3">
+            <div>
+              <Label htmlFor="gameName" className="text-sm font-semibold text-slate-700">
+                Ton nom dans le jeu <span className="text-rose-500">*</span>
+              </Label>
+              <Input
+                id="gameName"
+                value={gameName}
+                onChange={(e) => setGameName(e.target.value)}
+                placeholder="Ex : MonPseudoRoblox"
+                className="mt-1 rounded-xl h-11"
+                maxLength={50}
+              />
+              <p className="text-[11px] text-slate-400 mt-1">
+                Le vendeur a besoin de ton pseudo pour te livrer.
+              </p>
+            </div>
+
+            {/* Action buttons */}
+            <div className="flex flex-col sm:flex-row gap-3">
+              <Button
+                type="button"
+                onClick={contact}
+                variant="outline"
+                className="flex-1 h-12 rounded-full border-emerald-300 text-emerald-700 hover:bg-emerald-50 font-semibold"
+              >
+                <MessageCircle className="size-5" />
+                Message
+              </Button>
+              <Button
+                type="button"
+                onClick={() => {
+                  if (!gameName.trim()) {
+                    // Focus the input
+                    document.getElementById("gameName")?.focus();
+                    return;
+                  }
+                  buy();
+                }}
+                className="flex-1 h-12 rounded-full bg-gradient-to-r from-sky-500 to-cyan-500 hover:from-sky-600 hover:to-cyan-600 text-white font-bold shadow-md hover:shadow-lg"
+              >
+                <ShieldCheck className="size-5" />
+                Payer avec Wave
+              </Button>
+            </div>
+            <p className="text-center text-[11px] text-slate-400">
+              🔒 Paiement sécurisé via Wave. Le vendeur recevra ton pseudo pour la livraison.
+            </p>
           </div>
         </div>
       </div>

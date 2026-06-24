@@ -204,9 +204,6 @@ function ListingCard({
 }) {
   const images = getListingImages(listing);
   const firstImage = images[0];
-  const stock = typeof listing.stock === "number" ? listing.stock : 1;
-  const outOfStock = stock <= 0;
-  const lowStock = stock > 0 && stock <= 3;
 
   return (
     <Link
@@ -281,20 +278,6 @@ function ListingCard({
           <span className="font-extrabold text-fuchsia-600 text-lg">
             {formatFCFA(listing.price)}
           </span>
-          {/* Stock indicator */}
-          {outOfStock ? (
-            <span className="text-[11px] font-bold text-rose-600">
-              Rupture de stock
-            </span>
-          ) : lowStock ? (
-            <span className="text-[11px] font-bold text-amber-600">
-              Plus que {stock} en stock !
-            </span>
-          ) : (
-            <span className="text-[11px] font-bold text-emerald-600">
-              {stock} en stock
-            </span>
-          )}
         </div>
 
         {/* Two buttons: Contact seller + Buy */}
@@ -317,13 +300,12 @@ function ListingCard({
               e.stopPropagation();
               onBuy();
             }}
-            disabled={outOfStock}
-            className="flex-1 h-10 rounded-full bg-gradient-to-r from-sky-500 to-cyan-500 hover:from-sky-600 hover:to-cyan-600 text-white font-bold shadow-md hover:shadow-lg text-sm disabled:opacity-60 disabled:cursor-not-allowed"
+            className="flex-1 h-10 rounded-full bg-gradient-to-r from-sky-500 to-cyan-500 hover:from-sky-600 hover:to-cyan-600 text-white font-bold shadow-md hover:shadow-lg text-sm"
           >
             <span className="size-4 rounded-full bg-white/20 grid place-items-center text-[10px] font-bold">
               W
             </span>
-            {outOfStock ? "Rupture" : "Acheter"}
+            Acheter
           </Button>
         </div>
       </div>

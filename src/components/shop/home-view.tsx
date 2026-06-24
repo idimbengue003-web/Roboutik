@@ -235,9 +235,6 @@ function ListingMiniCard({
 }) {
   const images = getListingImages(listing);
   const firstImage = images[0];
-  const stock = typeof listing.stock === "number" ? listing.stock : 1;
-  const outOfStock = stock <= 0;
-  const lowStock = stock > 0 && stock <= 3;
 
   return (
     <Link
@@ -284,15 +281,6 @@ function ListingMiniCard({
           <span className="font-extrabold text-fuchsia-600 text-base">
             {formatFCFA(listing.price)}
           </span>
-          {outOfStock ? (
-            <span className="text-[10px] font-bold text-rose-600">
-              Rupture de stock
-            </span>
-          ) : lowStock ? (
-            <span className="text-[10px] font-bold text-amber-600">
-              Plus que {stock} !
-            </span>
-          ) : null}
         </div>
 
         {/* Two buttons: Message + Buy */}
