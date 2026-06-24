@@ -115,7 +115,7 @@ export async function GET(
         data: {
           orderId: order.id,
           senderId: order.sellerId,
-          content: `Salut 👋 Bienvenue chez ${order.seller.username} ! J'ai bien reçu ton paiement Wave de ${order.amount} FCFA${match.senderName ? ` de ${match.senderName}` : ""}. Je prépare ta commande "${order.listing.title}" pour ${order.listing.game.name}. Dis-moi quand tu es prêt·e !`,
+          content: `Bonjour 👋 Votre paiement Wave de ${order.amount} FCFA${match.senderName ? ` (${match.senderName})` : ""} a bien été reçu. Je prépare actuellement votre commande « ${order.listing.title} » sur ${order.listing.game.name}. Merci de m'indiquer votre nom de jeu Roblox ainsi que tout détail utile pour la livraison. Je reviens vers vous dès que c'est prêt !`,
           isAuto: true,
         },
       }),
