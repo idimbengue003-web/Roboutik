@@ -8,13 +8,13 @@ import { useRef, useState, useCallback } from "react";
  * Multi-image upload component (Leboncoin-style).
  * - Drag & drop or click to select
  * - Client-side resize to max 800x600 (WebP, quality 0.8)
- * - Max 4 images, max 500KB each (after resize)
+ * - Max 1 image, max 500KB each (after resize)
  * - Preview grid with remove buttons
  *
  * Returns base64 data URLs via onChange callback.
  */
 
-const MAX_IMAGES = 4;
+const MAX_IMAGES = 1;
 const MAX_WIDTH = 800;
 const MAX_HEIGHT = 600;
 const QUALITY = 0.8;
@@ -158,7 +158,7 @@ export function ImageUpload({ images, onChange }: ImageUploadProps) {
             ref={inputRef}
             type="file"
             accept="image/*"
-            multiple
+            multiple={false}
             className="hidden"
             onChange={(e) => handleFiles(e.target.files)}
           />
@@ -176,41 +176,35 @@ export function ImageUpload({ images, onChange }: ImageUploadProps) {
                 Glisse des photos ici ou clique pour choisir
               </p>
               <p className="text-[11px] text-slate-400">
-                Max {MAX_IMAGES} photos · JPG/PNG/WebP · redimensionnées automatiquement
+                1 photo max · JPG/PNG/WebP · redimensionnée automatiquement
               </p>
             </div>
           )}
         </div>
       )}
 
-      {/* Preview grid */}
+      {/* Preview (single image) */}
       {images.length > 0 && (
-        <div className="grid grid-cols-4 gap-2">
+        <div className="grid grid-cols-1 gap-2">
           {images.map((img, i) => (
             <div
               key={i}
-              className="relative aspect-square rounded-xl overflow-hidden group bg-slate-100"
+              className="relative aspect-video rounded-xl overflow-hidden group bg-slate-100"
             >
               <img
                 src={img}
                 alt={`Photo ${i + 1}`}
                 className="size-full object-cover"
               />
-              {/* First image badge */}
-              {i === 0 && (
-                <span className="absolute bottom-1 left-1 rounded-full bg-fuchsia-600 text-white text-[9px] font-bold px-1.5 py-0.5">
-                  Photo principale
-                </span>
-              )}
               {/* Remove button */}
               <button
                 onClick={(e) => {
                   e.stopPropagation();
                   removeImage(i);
                 }}
-                className="absolute top-1 right-1 grid size-6 place-items-center rounded-full bg-black/60 text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-rose-600"
+                className="absolute top-1 right-1 grid size-7 place-items-center rounded-full bg-black/60 text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-rose-600"
               >
-                <X className="size-3.5" />
+                <X className="size-4" />
               </button>
             </div>
           ))}
@@ -225,7 +219,7 @@ export function ImageUpload({ images, onChange }: ImageUploadProps) {
       {/* Count indicator */}
       {images.length > 0 && (
         <p className="text-[11px] text-slate-400">
-          {images.length}/{MAX_IMAGES} photo{images.length > 1 ? "s" : ""}
+          {images.length}/{MAX_IMAGES} photo
         </p>
       )}
     </div>

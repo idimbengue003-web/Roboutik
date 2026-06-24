@@ -110,7 +110,7 @@ export async function PATCH(
               (item) => typeof item === "string" && item.startsWith("data:image/")
             );
             if (valid.length > 0) {
-              imagesJson = JSON.stringify(valid.slice(0, 4));
+              imagesJson = JSON.stringify(valid.slice(0, 1));
             }
           }
         } catch {

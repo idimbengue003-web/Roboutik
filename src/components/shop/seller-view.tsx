@@ -703,9 +703,9 @@ function EditListingDialog({
 
         <div className="space-y-3">
           <div>
-            <Label className="text-sm font-semibold">Photos</Label>
+            <Label className="text-sm font-semibold">Photo</Label>
             <p className="text-[11px] text-slate-500 mb-2">
-              Ajoute jusqu'à 4 photos. Les anciennes sont conservées si tu n'en rajoutes pas.
+              Ajoute 1 photo de l'item. Elle apparaîtra sur l'annonce.
             </p>
             <ImageUpload images={images} onChange={setImages} />
           </div>

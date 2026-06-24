@@ -96,13 +96,13 @@ export async function POST(req: NextRequest) {
       // Validate it's a valid JSON array of strings, max 4 items
       try {
         const parsed = JSON.parse(rawImages);
-        if (Array.isArray(parsed) && parsed.length <= 4) {
+        if (Array.isArray(parsed) && parsed.length <= 1) {
           // Each item must be a data URL (starts with "data:image/")
           const valid = parsed.filter(
             (item) => typeof item === "string" && item.startsWith("data:image/")
           );
           if (valid.length > 0) {
-            imagesJson = JSON.stringify(valid.slice(0, 4));
+            imagesJson = JSON.stringify(valid.slice(0, 1));
           }
         }
       } catch {
