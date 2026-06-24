@@ -334,12 +334,11 @@ export function ChatDrawer() {
               }
             }}
             placeholder="Écris un message…"
-            disabled={status === "VALIDATED"}
             className="flex-1 rounded-full h-11"
           />
           <Button
             onClick={handleSend}
-            disabled={!input.trim() || sending || status === "VALIDATED"}
+            disabled={!input.trim() || sending}
             className="h-11 w-11 rounded-full p-0 bg-gradient-to-r from-fuchsia-600 to-orange-500 text-white"
           >
             {sending ? (
