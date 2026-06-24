@@ -305,13 +305,12 @@ function ListingMiniCard({
               e.stopPropagation();
               onBuy();
             }}
-            disabled={outOfStock}
-            className="flex-1 h-8 rounded-full bg-gradient-to-r from-sky-500 to-cyan-500 text-white text-xs font-bold disabled:opacity-60 disabled:cursor-not-allowed"
+            className="flex-1 h-8 rounded-full bg-gradient-to-r from-sky-500 to-cyan-500 text-white text-xs font-bold"
           >
             <span className="size-3.5 rounded-full bg-white/20 grid place-items-center text-[8px] font-bold">
               W
             </span>
-            {outOfStock ? "Rupture" : "Acheter"}
+            Acheter
           </Button>
         </div>
       </div>
