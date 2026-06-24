@@ -1,12 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getActorById, errorResponse, logAdminAction } from "@/lib/security";
-import { parseBody, rejectWithdrawalSchemaWith2FA } from "@/lib/validation";
+import { parseBody, rejectWithdrawalSchema } from "@/lib/validation";
 import { sanitizeMessage } from "@/lib/sanitize";
-import { verify2FA } from "@/lib/two-factor";
 
 // POST /api/admin/withdrawals/[id]/reject
-// body: { adminId, reason, twoFactorCode }
+// body: { adminId, reason }
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -14,7 +13,7 @@ export async function POST(
   try {
     const { id } = await params;
     const body = await req.json().catch(() => null);
-    const [data, parseErr] = parseBody(rejectWithdrawalSchemaWith2FA, body);
+    const [data, parseErr] = parseBody(rejectWithdrawalSchema, body);
     if (parseErr) return errorResponse(parseErr);
     const { adminId } = data!;
     const reason = data!.reason ? sanitizeMessage(data!.reason) : "";
@@ -23,10 +22,6 @@ export async function POST(
       requireAdmin: true,
     });
     if (error) return errorResponse(error);
-
-    // 2FA verification
-    const twoFAErr = await verify2FA(admin!.id, data!.twoFactorCode);
-    if (twoFAErr) return errorResponse(twoFAErr);
 
     const withdrawal = await db.withdrawal.findUnique({
       where: { id },
