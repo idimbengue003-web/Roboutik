@@ -66,15 +66,15 @@ export async function POST(req: NextRequest) {
     const recentListingCount = await db.listing.count({
       where: { sellerId: userId, createdAt: { gt: oneDayAgo } },
     });
-    if (recentListingCount >= 10) {
+    if (recentListingCount >= 50) {
       return NextResponse.json(
         { error: "Tu as créé 10 annonces aujourd'hui. Reviens demain." },
         { status: 429 }
       );
     }
 
-    // Compute buyer price: sellerNetPrice + 20% commission
-    const buyerPrice = Math.round(sellerNetPrice * 1.2);
+    // Compute buyer price = seller net price (no commission)
+    const buyerPrice = sellerNetPrice;
     const commission = buyerPrice - sellerNetPrice;
 
     // Extract images (JSON string of base64 data URLs array)
