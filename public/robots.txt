@@ -1,9 +1,17 @@
+# robots.txt — RobloxBoutik
+# Marketplace Roblox légitime, paiement Wave Business Sénégal
+# Plus d'infos: https://robloxboutik.com/legal/notices
+
 User-agent: *
 Allow: /
 Allow: /how-it-works
+Allow: /listing/
+Allow: /seller/
+Allow: /legal/
 Disallow: /api/
 Disallow: /admin
-Disallow: /seller
-Disallow: /legal/
+
+# Indexation explicite des pages publiques
+Allow: /$
 
 Sitemap: https://robloxboutik.com/sitemap.xml

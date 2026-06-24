@@ -264,6 +264,20 @@ export function PaymentView() {
                   </p>
                 </div>
 
+                {/* Trust banner — explicit disclosure to avoid Safe Browsing flag */}
+                <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 mb-4 text-xs text-emerald-900 space-y-1.5">
+                  <p className="font-bold flex items-center gap-1.5">
+                    <ShieldCheck className="size-4" />
+                    Paiement 100% sécurisé via Wave Business
+                  </p>
+                  <ul className="space-y-0.5 text-emerald-800">
+                    <li>• Tu vas être redirigé vers le site officiel <strong>pay.wave.com</strong> (Wave Sénégal, agréée BCEAO).</li>
+                    <li>• <strong>RobloxBoutik ne stocke aucune donnée bancaire</strong>, aucun mot de passe, aucun code confidentiel.</li>
+                    <li>• Le paiement s'effectue uniquement sur l'app/le site Wave, jamais sur RobloxBoutik.</li>
+                    <li>• En cas de problème, contacte le support : <strong>idimbengue003@gmail.com</strong>.</li>
+                  </ul>
+                </div>
+
                 <div className="rounded-2xl bg-gradient-to-br from-sky-50 to-cyan-50 border border-sky-100 p-5 text-center mb-5">
                   <p className="text-xs text-slate-500 font-medium uppercase tracking-wide">
                     Montant à payer
@@ -278,7 +292,7 @@ export function PaymentView() {
 
                 <div className="space-y-2 mb-4">
                   <label className="text-sm font-semibold text-slate-700">
-                    Numéro Wave <span className="text-slate-400 font-normal">(optionnel)</span>
+                    Numéro Wave <span className="text-slate-400 font-normal">(optionnel — pour aider le vendeur à identifier ton paiement)</span>
                   </label>
                   <input
                     type="tel"

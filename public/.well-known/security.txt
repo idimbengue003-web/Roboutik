@@ -1,0 +1,11 @@
+Contact: mailto:idimbengue003@gmail.com
+Expires: 2027-12-31T23:59:59.000Z
+Preferred-Languages: fr, en
+Canonical: https://robloxboutik.com/.well-known/security.txt
+Policy: https://robloxboutik.com/legal/privacy
+Hiring: false
+
+# RobloxBoutik — marketplace Roblox pour le Sénégal
+# Plateforme e-commerce légitime, paiement via Wave Business (SMS Sénégal)
+# Hébergé sur Vercel. Aucun malware, aucun phishing, aucun logiciel indésirable.
+# Pour toute question de sécurité, contacter l'email ci-dessus.
