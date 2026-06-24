@@ -158,7 +158,7 @@ export async function POST(req: NextRequest) {
       continue;
     }
 
-    const description = `Item Roblox Grow a Garden 2 : ${title}\nPrix original : ~$${usdPrice.toFixed(2)} USD\n\nLivraison rapide après paiement Wave. Indique ton pseudo Roblox lors de la commande.`;
+    const description = `Item Roblox Grow a Garden 2 : ${title}\n\nLivraison rapide après paiement Wave. Indique ton pseudo Roblox lors de la commande.`;
 
     await db.listing.create({
       data: {
