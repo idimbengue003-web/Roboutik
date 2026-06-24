@@ -18,6 +18,9 @@ import {
   ChevronLeft,
   ChevronRight,
   ShieldCheck,
+  Star,
+  TrendingUp,
+  ExternalLink,
 } from "lucide-react";
 
 export default function ListingDetailPage({
@@ -39,6 +42,11 @@ export default function ListingDetailPage({
   const [enlarged, setEnlarged] = useState<string | null>(null);
   const [activeIdx, setActiveIdx] = useState(0);
   const [gameName, setGameName] = useState("");
+  const [sellerStats, setSellerStats] = useState<{
+    totalSales: number;
+    avgRating: number;
+    totalRatings: number;
+  } | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -59,6 +67,15 @@ export default function ListingDetailPage({
           setNotFound(true);
         } else {
           setListing(found);
+          // Fetch seller stats in parallel (don't block page render)
+          if (found.seller?.id) {
+            fetch(`/api/sellers/${found.seller.id}`)
+              .then((r2) => r2.json())
+              .then((d2) => {
+                if (!cancelled && d2?.stats) setSellerStats(d2.stats);
+              })
+              .catch(() => {});
+          }
         }
       } catch {
         if (!cancelled) setNotFound(true);
@@ -233,14 +250,17 @@ export default function ListingDetailPage({
             </span>
           </div>
 
-          {/* Seller info */}
+          {/* Seller info — clickable to open seller profile */}
           {seller && (
-            <div className="mt-4 flex items-center gap-3 rounded-2xl border bg-white p-3">
+            <Link
+              href={`/seller/${seller.id}`}
+              className="mt-4 flex items-center gap-3 rounded-2xl border bg-white p-3 hover:shadow-md hover:border-fuchsia-300 transition-all group"
+            >
               <div className="grid size-11 place-items-center rounded-full bg-gradient-to-br from-fuchsia-100 to-orange-100 text-lg font-bold text-fuchsia-700">
                 {seller.avatar ?? "🛒"}
               </div>
               <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-1.5">
+                <div className="flex items-center gap-1.5 flex-wrap">
                   <span className="font-bold text-slate-900 truncate">
                     {seller.username}
                   </span>
@@ -251,10 +271,37 @@ export default function ListingDetailPage({
                     </span>
                   )}
                 </div>
-                <p className="text-xs text-slate-500">Vendeur</p>
+                {/* Global seller stats: sales + rating */}
+                {sellerStats ? (
+                  <div className="flex items-center gap-3 mt-0.5 text-xs text-slate-500">
+                    <span className="flex items-center gap-0.5">
+                      <TrendingUp className="size-3 text-emerald-500" />
+                      <strong className="text-slate-700">
+                        {sellerStats.totalSales}
+                      </strong>{" "}
+                      vente{sellerStats.totalSales > 1 ? "s" : ""}
+                    </span>
+                    {sellerStats.totalRatings > 0 && (
+                      <span className="flex items-center gap-0.5">
+                        <Star className="size-3 fill-amber-400 text-amber-400" />
+                        <strong className="text-slate-700">
+                          {sellerStats.avgRating}
+                        </strong>
+                        <span className="text-slate-400">
+                          ({sellerStats.totalRatings} avis)
+                        </span>
+                      </span>
+                    )}
+                  </div>
+                ) : (
+                  <p className="text-xs text-slate-500 mt-0.5">Vendeur</p>
+                )}
               </div>
-              <Store className="size-5 text-emerald-500" />
-            </div>
+              <div className="flex items-center gap-1 text-xs text-fuchsia-600 font-semibold shrink-0">
+                <span className="hidden sm:inline">Profil</span>
+                <ExternalLink className="size-4 group-hover:translate-x-0.5 transition-transform" />
+              </div>
+            </Link>
           )}
 
           {/* Description */}
