@@ -4,6 +4,7 @@ import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
 import { AuthProvider } from "@/lib/auth";
 import { ClientErrorTracker } from "@/components/shop/client-error-tracker";
+import { db } from "@/lib/db";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -14,6 +15,29 @@ const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
 });
+
+async function getSiteConfig() {
+  try {
+    let config = await db.siteConfig.findUnique({ where: { id: "default" } });
+    if (!config) {
+      config = await db.siteConfig.create({ data: { id: "default" } });
+    }
+    return config;
+  } catch {
+    // If the table doesn't exist yet (before /api/admin/setup is called),
+    // fall back to defaults so the site keeps rendering.
+    return {
+      id: "default",
+      primaryColor: "c026d3",
+      accentColor: "f97316",
+      bgColor: "ffffff",
+      siteName: "RobloxBoutik",
+      heroTitle: "Achète tes items Roblox préférés",
+      heroSubtitle: "Paiement Wave · Livraison rapide · Paiement sécurisé",
+      updatedAt: new Date(),
+    };
+  }
+}
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://robloxboutik.com"),
@@ -58,15 +82,31 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const config = await getSiteConfig();
+  // Convert hex (without #) to "r g b" for CSS variable consumption
+  const hexToRgb = (hex: string) => {
+    const h = hex.replace(/^#/, "");
+    const r = parseInt(h.slice(0, 2), 16);
+    const g = parseInt(h.slice(2, 4), 16);
+    const b = parseInt(h.slice(4, 6), 16);
+    return `${r} ${g} ${b}`;
+  };
+  const themeStyle = {
+    "--brand-primary": hexToRgb(config.primaryColor),
+    "--brand-accent": hexToRgb(config.accentColor),
+    "--brand-bg": hexToRgb(config.bgColor),
+  } as React.CSSProperties;
+
   return (
     <html lang="fr" suppressHydrationWarning>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground`}
+        style={themeStyle}
       >
         <AuthProvider>
           {children}

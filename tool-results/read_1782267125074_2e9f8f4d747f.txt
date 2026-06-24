@@ -1,0 +1,1152 @@
+     1→"use client";
+     2→
+     3→import { useAppStore } from "@/lib/store";
+     4→import { Button } from "@/components/ui/button";
+     5→import { Input } from "@/components/ui/input";
+     6→import { Label } from "@/components/ui/label";
+     7→import {
+     8→  Dialog,
+     9→  DialogContent,
+    10→  DialogHeader,
+    11→  DialogTitle,
+    12→  DialogDescription,
+    13→  DialogFooter,
+    14→} from "@/components/ui/dialog";
+    15→import { VisuallyHidden } from "@/components/ui/visually-hidden";
+    16→import {
+    17→  Shield,
+    18→  Users,
+    19→  Ban,
+    20→  CheckCircle2,
+    21→  TrendingUp,
+    22→  Wallet,
+    23→  HeadphonesIcon,
+    24→  Search,
+    25→  X,
+    26→  Clock,
+    27→  AlertTriangle,
+    28→  Package,
+    29→  ArrowDownToLine,
+    30→} from "lucide-react";
+    31→import { useEffect, useState, useCallback } from "react";
+    32→import type { AuditLog, User, Withdrawal } from "@/lib/types";
+    33→import { formatFCFA } from "@/lib/types";
+    34→import { useToast } from "@/hooks/use-toast";
+    35→
+    36→type AdminStats = {
+    37→  users: { total: number; sellers: number; banned: number };
+    38→  listings: { total: number; active: number };
+    39→  orders: {
+    40→    total: number;
+    41→    pendingPayment: number;
+    42→    paid: number;
+    43→    delivered: number;
+    44→    validated: number;
+    45→  };
+    46→  withdrawals: { pending: number; completed: number; rejected: number };
+    47→  tickets: { open: number; botHandled: number; adminHandled: number };
+    48→  revenue: { totalGmv: number; totalCommission: number; totalSellerPayouts: number };
+    49→};
+    50→
+    51→type AdminUser = User & {
+    52→  _count: {
+    53→    listings: number;
+    54→    buyerOrders: number;
+    55→    sellerOrders: number;
+    56→    withdrawals: number;
+    57→  };
+    58→};
+    59→
+    60→export function AdminView() {
+    61→  const { me } = useAppStore();
+    62→
+    63→  if (!me?.isAdmin) {
+    64→    return (
+    65→      <div className="mx-3 sm:mx-6 py-12">
+    66→        <div className="rounded-3xl border bg-white p-8 sm:p-12 text-center max-w-md mx-auto">
+    67→          <div className="mx-auto grid size-16 place-items-center rounded-full bg-rose-50 mb-4">
+    68→            <Shield className="size-8 text-rose-500" />
+    69→          </div>
+    70→          <h2 className="text-xl font-bold text-slate-900">Accès refusé</h2>
+    71→          <p className="text-slate-500 mt-2">
+    72→            Cette page est réservée aux administrateurs de Roboutik.
+    73→          </p>
+    74→        </div>
+    75→      </div>
+    76→    );
+    77→  }
+    78→
+    79→  return <AdminDashboard adminId={me.id} />;
+    80→}
+    81→
+    82→function AdminDashboard({ adminId }: { adminId: string }) {
+    83→  const [tab, setTab] = useState<"overview" | "users" | "withdrawals" | "tickets" | "audit">(
+    84→    "overview"
+    85→  );
+    86→  const [stats, setStats] = useState<AdminStats | null>(null);
+    87→
+    88→  const loadStats = useCallback(async () => {
+    89→    try {
+    90→      const r = await fetch(`/api/admin/stats?adminId=${adminId}`);
+    91→      if (!r.ok) return;
+    92→      const d = await r.json();
+    93→      setStats(d);
+    94→    } catch {
+    95→      /* noop */
+    96→    }
+    97→  }, [adminId]);
+    98→
+    99→  useEffect(() => {
+   100→    let cancelled = false;
+   101→    (async () => {
+   102→      await loadStats();
+   103→    })();
+   104→    const t = setInterval(loadStats, 15000);
+   105→    return () => {
+   106→      cancelled = true;
+   107→      clearInterval(t);
+   108→    };
+   109→  }, [loadStats]);
+   110→
+   111→  return (
+   112→    <div className="mx-3 sm:mx-6 py-6 pb-12 space-y-6">
+   113→      <div className="flex items-center justify-between flex-wrap gap-3">
+   114→        <div>
+   115→          <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 flex items-center gap-2">
+   116→            <Shield className="size-7 text-rose-500" />
+   117→            Admin Roboutik
+   118→          </h1>
+   119→          <p className="text-slate-500 text-sm mt-1">
+   120→            Gère les utilisateurs, les retraits, le support et surveille la plateforme.
+   121→          </p>
+   122→        </div>
+   123→      </div>
+   124→
+   125→      {/* Tabs */}
+   126→      <div className="flex items-center gap-1 overflow-x-auto pb-1">
+   127→        {[
+   128→          { id: "overview", label: "Vue d'ensemble", icon: TrendingUp },
+   129→          { id: "users", label: "Utilisateurs", icon: Users },
+   130→          { id: "withdrawals", label: "Retraits", icon: ArrowDownToLine },
+   131→          { id: "tickets", label: "Support", icon: HeadphonesIcon },
+   132→          { id: "audit", label: "Journal", icon: Clock },
+   133→        ].map((t) => {
+   134→          const Icon = t.icon;
+   135→          const active = tab === t.id;
+   136→          return (
+   137→            <Button
+   138→              key={t.id}
+   139→              variant={active ? "default" : "outline"}
+   140→              size="sm"
+   141→              onClick={() => setTab(t.id as typeof tab)}
+   142→              className={`h-9 rounded-full px-4 text-sm font-semibold shrink-0 ${
+   143→                active
+   144→                  ? "bg-gradient-to-r from-rose-600 to-orange-500 text-white"
+   145→                  : ""
+   146→              }`}
+   147→            >
+   148→              <Icon className="size-4" />
+   149→              {t.label}
+   150→            </Button>
+   151→          );
+   152→        })}
+   153→      </div>
+   154→
+   155→      {tab === "overview" && <OverviewTab stats={stats} />}
+   156→      {tab === "users" && <UsersTab adminId={adminId} />}
+   157→      {tab === "withdrawals" && <WithdrawalsTab adminId={adminId} />}
+   158→      {tab === "tickets" && <TicketsTab adminId={adminId} />}
+   159→      {tab === "audit" && <AuditTab adminId={adminId} />}
+   160→    </div>
+   161→  );
+   162→}
+   163→
+   164→function OverviewTab({ stats }: { stats: AdminStats | null }) {
+   165→  if (!stats) {
+   166→    return <div className="text-center text-slate-500 py-8">Chargement…</div>;
+   167→  }
+   168→
+   169→  return (
+   170→    <div className="space-y-4">
+   171→      {/* Revenue card */}
+   172→      <div className="rounded-2xl bg-gradient-to-br from-rose-500 via-orange-500 to-amber-400 p-5 text-white shadow-lg">
+   173→        <p className="text-xs opacity-90 uppercase tracking-wide font-semibold">
+   174→          Commission plateforme (20%)
+   175→        </p>
+   176→        <p className="text-4xl font-extrabold mt-1">
+   177→          {formatFCFA(stats.revenue.totalCommission)}
+   178→        </p>
+   179→        <div className="grid grid-cols-2 gap-4 mt-4 pt-4 border-t border-white/20">
+   180→          <div>
+   181→            <p className="text-[11px] opacity-80 uppercase">GMV total</p>
+   182→            <p className="text-lg font-bold">{formatFCFA(stats.revenue.totalGmv)}</p>
+   183→          </div>
+   184→          <div>
+   185→            <p className="text-[11px] opacity-80 uppercase">Versé vendeurs</p>
+   186→            <p className="text-lg font-bold">{formatFCFA(stats.revenue.totalSellerPayouts)}</p>
+   187→          </div>
+   188→        </div>
+   189→      </div>
+   190→
+   191→      {/* Stats grid */}
+   192→      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+   193→        <StatCard
+   194→          icon={<Users className="size-5 text-sky-600" />}
+   195→          label="Utilisateurs"
+   196→          value={String(stats.users.total)}
+   197→          sub={`${stats.users.sellers} vendeurs`}
+   198→          tint="bg-sky-50"
+   199→        />
+   200→        <StatCard
+   201→          icon={<Ban className="size-5 text-rose-600" />}
+   202→          label="Bannis"
+   203→          value={String(stats.users.banned)}
+   204→          tint="bg-rose-50"
+   205→        />
+   206→        <StatCard
+   207→          icon={<Package className="size-5 text-fuchsia-600" />}
+   208→          label="Annonces"
+   209→          value={String(stats.listings.total)}
+   210→          sub={`${stats.listings.active} actives`}
+   211→          tint="bg-fuchsia-50"
+   212→        />
+   213→        <StatCard
+   214→          icon={<TrendingUp className="size-5 text-emerald-600" />}
+   215→          label="Commandes"
+   216→          value={String(stats.orders.total)}
+   217→          sub={`${stats.orders.validated} validées`}
+   218→          tint="bg-emerald-50"
+   219→        />
+   220→        <StatCard
+   221→          icon={<ArrowDownToLine className="size-5 text-violet-600" />}
+   222→          label="Retraits en attente"
+   223→          value={String(stats.withdrawals.pending)}
+   224→          tint="bg-amber-50"
+   225→        />
+   226→        <StatCard
+   227→          icon={<HeadphonesIcon className="size-5 text-cyan-600" />}
+   228→          label="Tickets support"
+   229→          value={String(stats.tickets.open + stats.tickets.adminHandled)}
+   230→          sub={`${stats.tickets.adminHandled} à traiter`}
+   231→          tint="bg-cyan-50"
+   232→        />
+   233→      </div>
+   234→
+   235→      {/* Orders breakdown */}
+   236→      <div className="rounded-2xl border bg-white p-4">
+   237→        <h3 className="font-bold text-slate-900 mb-3">📊 Répartition des commandes</h3>
+   238→        <div className="space-y-2 text-sm">
+   239→          <OrderRow label="Paiement en attente" count={stats.orders.pendingPayment} color="bg-amber-400" />
+   240→          <OrderRow label="Payées" count={stats.orders.paid} color="bg-sky-400" />
+   241→          <OrderRow label="Livraisons en cours" count={stats.orders.delivered} color="bg-violet-400" />
+   242→          <OrderRow label="Validées" count={stats.orders.validated} color="bg-emerald-400" />
+   243→        </div>
+   244→      </div>
+   245→    </div>
+   246→  );
+   247→}
+   248→
+   249→function OrderRow({
+   250→  label,
+   251→  count,
+   252→  color,
+   253→}: {
+   254→  label: string;
+   255→  count: number;
+   256→  color: string;
+   257→}) {
+   258→  return (
+   259→    <div className="flex items-center gap-2">
+   260→      <span className={`size-2 rounded-full ${color}`} />
+   261→      <span className="flex-1 text-slate-700">{label}</span>
+   262→      <span className="font-bold text-slate-900">{count}</span>
+   263→    </div>
+   264→  );
+   265→}
+   266→
+   267→function StatCard({
+   268→  icon,
+   269→  label,
+   270→  value,
+   271→  sub,
+   272→  tint,
+   273→}: {
+   274→  icon: React.ReactNode;
+   275→  label: string;
+   276→  value: string;
+   277→  sub?: string;
+   278→  tint: string;
+   279→}) {
+   280→  return (
+   281→    <div className="rounded-2xl border bg-white p-3 shadow-sm">
+   282→      <div className={`grid size-9 place-items-center rounded-lg ${tint} mb-2`}>
+   283→        {icon}
+   284→      </div>
+   285→      <p className="text-[11px] text-slate-500 font-medium">{label}</p>
+   286→      <p className="font-bold text-slate-900 text-base">{value}</p>
+   287→      {sub && <p className="text-[10px] text-slate-400">{sub}</p>}
+   288→    </div>
+   289→  );
+   290→}
+   291→
+   292→function UsersTab({ adminId }: { adminId: string }) {
+   293→  const [users, setUsers] = useState<AdminUser[]>([]);
+   294→  const [loading, setLoading] = useState(true);
+   295→  const [q, setQ] = useState("");
+   296→  const [bannedOnly, setBannedOnly] = useState(false);
+   297→  const [sellersOnly, setSellersOnly] = useState(false);
+   298→  const [banTarget, setBanTarget] = useState<AdminUser | null>(null);
+   299→  const { toast } = useToast();
+   300→
+   301→  const load = useCallback(async () => {
+   302→    setLoading(true);
+   303→    try {
+   304→      const params = new URLSearchParams({ adminId });
+   305→      if (q) params.set("q", q);
+   306→      if (bannedOnly) params.set("banned", "true");
+   307→      if (sellersOnly) params.set("sellers", "true");
+   308→      const r = await fetch(`/api/admin/users?${params.toString()}`);
+   309→      if (!r.ok) return;
+   310→      const d = await r.json();
+   311→      setUsers(d.users ?? []);
+   312→    } finally {
+   313→      setLoading(false);
+   314→    }
+   315→  }, [adminId, q, bannedOnly, sellersOnly]);
+   316→
+   317→  useEffect(() => {
+   318→    const t = setTimeout(load, 300);
+   319→    return () => clearTimeout(t);
+   320→  }, [load]);
+   321→
+   322→  async function handleBan(reason: string) {
+   323→    if (!banTarget) return;
+   324→    // 2FA: request a code by email, then prompt the admin to type it.
+   325→    let twoFactorCode = "";
+   326→    try {
+   327→      const sendR = await fetch(`/api/admin/2fa/send-code`, {
+   328→        method: "POST",
+   329→        headers: { "Content-Type": "application/json" },
+   330→        body: JSON.stringify({ adminId }),
+   331→      });
+   332→      if (!sendR.ok) {
+   333→        const e = await sendR.json().catch(() => ({}));
+   334→        throw new Error(e.error ?? "Impossible d'envoyer le code 2FA");
+   335→      }
+   336→      toast({
+   337→        title: "🔒 Code 2FA envoyé par email",
+   338→        description: "Regarde ta boîte mail (valable 10 min).",
+   339→      });
+   340→      twoFactorCode = window.prompt(
+   341→        "🔒 Code de sécurité admin\n\nUn code à 6 chiffres a été envoyé à ton email. Saisis-le pour confirmer le bannissement :",
+   342→        ""
+   343→      )?.trim() ?? "";
+   344→      if (!twoFactorCode) {
+   345→        toast({ title: "Action annulée", description: "Code 2FA requis." });
+   346→        return;
+   347→      }
+   348→    } catch (e) {
+   349→      toast({
+   350→        title: "Erreur 2FA",
+   351→        description: e instanceof Error ? e.message : "Erreur",
+   352→        variant: "destructive",
+   353→      });
+   354→      return;
+   355→    }
+   356→
+   357→    try {
+   358→      const r = await fetch(`/api/admin/users/${banTarget.id}/ban`, {
+   359→        method: "POST",
+   360→        headers: { "Content-Type": "application/json" },
+   361→        body: JSON.stringify({ adminId, reason, twoFactorCode }),
+   362→      });
+   363→      if (!r.ok) {
+   364→        const e = await r.json().catch(() => ({}));
+   365→        throw new Error(e.error ?? "Échec");
+   366→      }
+   367→      toast({
+   368→        title: "Utilisateur banni",
+   369→        description: banTarget.username,
+   370→      });
+   371→      setBanTarget(null);
+   372→      load();
+   373→    } catch (e) {
+   374→      toast({
+   375→        title: "Erreur",
+   376→        description: e instanceof Error ? e.message : "Erreur",
+   377→        variant: "destructive",
+   378→      });
+   379→    }
+   380→  }
+   381→
+   382→  async function handleUnban(u: AdminUser) {
+   383→    if (!confirm(`Débannir ${u.username} ?`)) return;
+   384→    try {
+   385→      const r = await fetch(`/api/admin/users/${u.id}/unban`, {
+   386→        method: "POST",
+   387→        headers: { "Content-Type": "application/json" },
+   388→        body: JSON.stringify({ adminId }),
+   389→      });
+   390→      if (!r.ok) throw new Error("Échec");
+   391→      toast({ title: "Utilisateur débanni" });
+   392→      load();
+   393→    } catch (e) {
+   394→      toast({
+   395→        title: "Erreur",
+   396→        description: e instanceof Error ? e.message : "Erreur",
+   397→        variant: "destructive",
+   398→      });
+   399→    }
+   400→  }
+   401→
+   402→  return (
+   403→    <div className="space-y-3">
+   404→      <div className="rounded-2xl border bg-white p-3 flex flex-wrap items-center gap-2">
+   405→        <div className="relative flex-1 min-w-[200px]">
+   406→          <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-slate-400" />
+   407→          <Input
+   408→            placeholder="Rechercher par pseudo ou email…"
+   409→            value={q}
+   410→            onChange={(e) => setQ(e.target.value)}
+   411→            className="h-9 pl-9 rounded-full"
+   412→          />
+   413→        </div>
+   414→        <Button
+   415→          size="sm"
+   416→          variant={bannedOnly ? "default" : "outline"}
+   417→          onClick={() => setBannedOnly(!bannedOnly)}
+   418→          className="h-9 rounded-full"
+   419→        >
+   420→          <Ban className="size-4" />
+   421→          Bannis
+   422→        </Button>
+   423→        <Button
+   424→          size="sm"
+   425→          variant={sellersOnly ? "default" : "outline"}
+   426→          onClick={() => setSellersOnly(!sellersOnly)}
+   427→          className="h-9 rounded-full"
+   428→        >
+   429→          Vendeurs
+   430→        </Button>
+   431→      </div>
+   432→
+   433→      {loading ? (
+   434→        <div className="text-center text-slate-500 py-8">Chargement…</div>
+   435→      ) : users.length === 0 ? (
+   436→        <div className="rounded-2xl border bg-white p-8 text-center text-slate-500">
+   437→          Aucun utilisateur.
+   438→        </div>
+   439→      ) : (
+   440→        <div className="rounded-2xl border bg-white divide-y">
+   441→          {users.map((u) => (
+   442→            <div key={u.id} className="flex items-center gap-3 p-3">
+   443→              <div className="grid size-10 place-items-center rounded-xl bg-slate-100 text-xl shrink-0">
+   444→                {u.avatar ?? "👤"}
+   445→              </div>
+   446→              <div className="flex-1 min-w-0">
+   447→                <div className="flex items-center gap-2">
+   448→                  <p className="font-semibold text-slate-900 line-clamp-1">
+   449→                    {u.username}
+   450→                  </p>
+   451→                  {u.isAdmin && (
+   452→                    <span className="bg-rose-100 text-rose-700 rounded-full px-1.5 py-0.5 text-[10px] font-bold">
+   453→                      ADMIN
+   454→                    </span>
+   455→                  )}
+   456→                  {u.isVerified && (
+   457→                    <span className="bg-sky-100 text-sky-700 rounded-full px-1.5 py-0.5 text-[10px] font-bold">
+   458→                      ✓ Vérifié
+   459→                    </span>
+   460→                  )}
+   461→                  {u.isSeller && (
+   462→                    <span className="bg-emerald-100 text-emerald-700 rounded-full px-1.5 py-0.5 text-[10px] font-bold">
+   463→                      VENDEUR
+   464→                    </span>
+   465→                  )}
+   466→                  {u.isBanned && (
+   467→                    <span className="bg-rose-100 text-rose-700 rounded-full px-1.5 py-0.5 text-[10px] font-bold">
+   468→                      BANNI
+   469→                    </span>
+   470→                  )}
+   471→                </div>
+   472→                <p className="text-xs text-slate-500 line-clamp-1">{u.email}</p>
+   473→                <div className="flex items-center gap-2 text-[11px] text-slate-400 mt-0.5">
+   474→                  <span>{u._count.listings} annonces</span>
+   475→                  <span>·</span>
+   476→                  <span>{u._count.buyerOrders} achats</span>
+   477→                  <span>·</span>
+   478→                  <span>{u._count.sellerOrders} ventes</span>
+   479→                  {u.balance > 0 && (
+   480→                    <>
+   481→                      <span>·</span>
+   482→                      <span className="text-emerald-600 font-semibold">
+   483→                        Solde : {formatFCFA(u.balance)}
+   484→                      </span>
+   485→                    </>
+   486→                  )}
+   487→                </div>
+   488→                {u.banReason && (
+   489→                  <p className="text-[11px] text-rose-600 mt-1">
+   490→                    Raison du ban : {u.banReason}
+   491→                  </p>
+   492→                )}
+   493→              </div>
+   494→              <div className="shrink-0 flex flex-col gap-1">
+   495→                {u.isBanned ? (
+   496→                  <Button
+   497→                    size="sm"
+   498→                    variant="outline"
+   499→                    onClick={() => handleUnban(u)}
+   500→                    className="h-8 text-xs rounded-full"
+   501→                  >
+   502→                    <CheckCircle2 className="size-3.5" />
+   503→                    Débannir
+   504→                  </Button>
+   505→                ) : (
+   506→                  !u.isAdmin && (
+   507→                    <Button
+   508→                      size="sm"
+   509→                      variant="outline"
+   510→                      onClick={() => setBanTarget(u)}
+   511→                      className="h-8 text-xs rounded-full text-rose-600 border-rose-300 hover:bg-rose-50"
+   512→                    >
+   513→                      <Ban className="size-3.5" />
+   514→                      Bannir
+   515→                    </Button>
+   516→                  )
+   517→                )}
+   518→                {/* Verify/Unverify button */}
+   519→                {u.isSeller && !u.isBanned && (
+   520→                  u.isVerified ? (
+   521→                    <Button
+   522→                      size="sm"
+   523→                      variant="ghost"
+   524→                      onClick={async () => {
+   525→                        try {
+   526→                          const r = await fetch(`/api/admin/users/${u.id}/verify?adminId=${adminId}`, { method: "DELETE" });
+   527→                          if (!r.ok) throw new Error("Échec");
+   528→                          toast({ title: "Vendeur dé-vérifié" });
+   529→                          load();
+   530→                        } catch (e) {
+   531→                          toast({ title: "Erreur", description: e instanceof Error ? e.message : "?", variant: "destructive" });
+   532→                        }
+   533→                      }}
+   534→                      className="h-7 text-[10px] rounded-full text-slate-500"
+   535→                    >
+   536→                      Retirer ✓
+   537→                    </Button>
+   538→                  ) : (
+   539→                    <Button
+   540→                      size="sm"
+   541→                      variant="outline"
+   542→                      onClick={async () => {
+   543→                        try {
+   544→                          const r = await fetch(`/api/admin/users/${u.id}/verify`, {
+   545→                            method: "POST",
+   546→                            headers: { "Content-Type": "application/json" },
+   547→                            body: JSON.stringify({ adminId }),
+   548→                          });
+   549→                          if (!r.ok) throw new Error("Échec");
+   550→                          toast({ title: "Vendeur vérifié ✓" });
+   551→                          load();
+   552→                        } catch (e) {
+   553→                          toast({ title: "Erreur", description: e instanceof Error ? e.message : "?", variant: "destructive" });
+   554→                        }
+   555→                      }}
+   556→                      className="h-7 text-[10px] rounded-full text-sky-600 border-sky-300 hover:bg-sky-50"
+   557→                    >
+   558→                      ✓ Vérifier
+   559→                    </Button>
+   560→                  )
+   561→                )}
+   562→              </div>
+   563→            </div>
+   564→          ))}
+   565→        </div>
+   566→      )}
+   567→
+   568→      <BanDialog
+   569→        user={banTarget}
+   570→        onClose={() => setBanTarget(null)}
+   571→        onConfirm={handleBan}
+   572→      />
+   573→    </div>
+   574→  );
+   575→}
+   576→
+   577→function BanDialog({
+   578→  user,
+   579→  onClose,
+   580→  onConfirm,
+   581→}: {
+   582→  user: AdminUser | null;
+   583→  onClose: () => void;
+   584→  onConfirm: (reason: string) => void;
+   585→}) {
+   586→  const [reason, setReason] = useState("");
+   587→  const [saving, setSaving] = useState(false);
+   588→  const [lastUserId, setLastUserId] = useState<string | null>(null);
+   589→
+   590→  // Reset reason when the target user changes
+   591→  if (user && user.id !== lastUserId) {
+   592→    setLastUserId(user.id);
+   593→    if (reason !== "") setReason("");
+   594→  }
+   595→  if (!user && lastUserId !== null) {
+   596→    setLastUserId(null);
+   597→  }
+   598→
+   599→  async function submit() {
+   600→    setSaving(true);
+   601→    await onConfirm(reason.trim());
+   602→    setSaving(false);
+   603→  }
+   604→
+   605→  return (
+   606→    <Dialog open={!!user} onOpenChange={(o) => !o && onClose()}>
+   607→      <DialogContent className="sm:max-w-md rounded-3xl">
+   608→        <DialogHeader>
+   609→          <DialogTitle className="flex items-center gap-2">
+   610→            <Ban className="size-5 text-rose-500" />
+   611→            Bannir {user?.username}
+   612→          </DialogTitle>
+   613→          <DialogDescription>
+   614→            L'utilisateur ne pourra plus acheter, vendre, ni retirer. Il verra le motif.
+   615→          </DialogDescription>
+   616→        </DialogHeader>
+   617→        <div className="space-y-2">
+   618→          <Label className="text-sm font-semibold">Motif du bannissement</Label>
+   619→          <Input
+   620→            value={reason}
+   621→            onChange={(e) => setReason(e.target.value)}
+   622→            placeholder="Ex : Arnaque avérée, spam, comportement abusif…"
+   623→            className="rounded-xl"
+   624→            maxLength={200}
+   625→          />
+   626→          <div className="grid grid-cols-2 gap-2 mt-2">
+   627→            {[
+   628→              "Arnaque avérée",
+   629→              "Spam d'annonces",
+   630→              "Comportement abusif",
+   631→              "Faux paiement",
+   632→            ].map((r) => (
+   633→              <button
+   634→                key={r}
+   635→                onClick={() => setReason(r)}
+   636→                className="text-xs px-2 py-1.5 rounded-full bg-slate-100 hover:bg-slate-200 font-medium text-slate-700"
+   637→              >
+   638→                {r}
+   639→              </button>
+   640→            ))}
+   641→          </div>
+   642→        </div>
+   643→        <DialogFooter className="gap-2">
+   644→          <Button variant="ghost" onClick={onClose}>
+   645→            Annuler
+   646→          </Button>
+   647→          <Button
+   648→            disabled={saving || !reason.trim()}
+   649→            onClick={submit}
+   650→            className="bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-full"
+   651→          >
+   652→            {saving ? "Bannissement…" : "Confirmer le ban"}
+   653→          </Button>
+   654→        </DialogFooter>
+   655→      </DialogContent>
+   656→    </Dialog>
+   657→  );
+   658→}
+   659→
+   660→function WithdrawalsTab({ adminId }: { adminId: string }) {
+   661→  const [withdrawals, setWithdrawals] = useState<(Withdrawal & { seller: User })[]>([]);
+   662→  const [loading, setLoading] = useState(true);
+   663→  const [filter, setFilter] = useState<"PENDING" | "COMPLETED" | "REJECTED" | "ALL">("PENDING");
+   664→  const { toast } = useToast();
+   665→
+   666→  const load = useCallback(async () => {
+   667→    setLoading(true);
+   668→    try {
+   669→      const r = await fetch(
+   670→        `/api/admin/withdrawals?adminId=${adminId}&status=${filter}`
+   671→      );
+   672→      if (!r.ok) return;
+   673→      const d = await r.json();
+   674→      setWithdrawals(d.withdrawals ?? []);
+   675→    } finally {
+   676→      setLoading(false);
+   677→    }
+   678→  }, [adminId, filter]);
+   679→
+   680→  useEffect(() => {
+   681→    load();
+   682→  }, [load]);
+   683→
+   684→  async function handleAction(w: Withdrawal & { seller: User }, action: "validate" | "reject") {
+   685→    const reason = action === "reject" ? prompt("Raison du refus ?") ?? "" : "";
+   686→
+   687→    // 2FA: request a code by email, then prompt the admin to type it.
+   688→    let twoFactorCode = "";
+   689→    try {
+   690→      const sendR = await fetch(`/api/admin/2fa/send-code`, {
+   691→        method: "POST",
+   692→        headers: { "Content-Type": "application/json" },
+   693→        body: JSON.stringify({ adminId }),
+   694→      });
+   695→      if (!sendR.ok) {
+   696→        const e = await sendR.json().catch(() => ({}));
+   697→        throw new Error(e.error ?? "Impossible d'envoyer le code 2FA");
+   698→      }
+   699→      toast({
+   700→        title: "🔒 Code 2FA envoyé par email",
+   701→        description: "Regarde ta boîte mail (valable 10 min).",
+   702→      });
+   703→      twoFactorCode = window.prompt(
+   704→        `🔒 Code de sécurité admin\n\nUn code à 6 chiffres a été envoyé à ton email. Saisis-le pour confirmer ${action === "validate" ? "la validation" : "le refus"} du retrait :`,
+   705→        ""
+   706→      )?.trim() ?? "";
+   707→      if (!twoFactorCode) {
+   708→        toast({ title: "Action annulée", description: "Code 2FA requis." });
+   709→        return;
+   710→      }
+   711→    } catch (e) {
+   712→      toast({
+   713→        title: "Erreur 2FA",
+   714→        description: e instanceof Error ? e.message : "Erreur",
+   715→        variant: "destructive",
+   716→      });
+   717→      return;
+   718→    }
+   719→
+   720→    try {
+   721→      const r = await fetch(`/api/admin/withdrawals/${w.id}/${action}`, {
+   722→        method: "POST",
+   723→        headers: { "Content-Type": "application/json" },
+   724→        body: JSON.stringify({
+   725→          adminId,
+   726→          reason: reason || undefined,
+   727→          twoFactorCode,
+   728→        }),
+   729→      });
+   730→      if (!r.ok) {
+   731→        const e = await r.json().catch(() => ({}));
+   732→        throw new Error(e.error ?? "Échec");
+   733→      }
+   734→      toast({
+   735→        title: action === "validate" ? "Retrait validé ✅" : "Retrait refusé",
+   736→        description:
+   737→          action === "validate"
+   738→            ? `${formatFCFA(w.amount)} envoyés à ${w.seller.username}`
+   739→            : `${formatFCFA(w.amount)} remboursés à ${w.seller.username}`,
+   740→      });
+   741→      load();
+   742→    } catch (e) {
+   743→      toast({
+   744→        title: "Erreur",
+   745→        description: e instanceof Error ? e.message : "Erreur",
+   746→        variant: "destructive",
+   747→      });
+   748→    }
+   749→  }
+   750→
+   751→  return (
+   752→    <div className="space-y-3">
+   753→      <div className="flex items-center gap-2 overflow-x-auto">
+   754→        {[
+   755→          { id: "PENDING", label: "En attente" },
+   756→          { id: "COMPLETED", label: "Validés" },
+   757→          { id: "REJECTED", label: "Refusés" },
+   758→          { id: "ALL", label: "Tous" },
+   759→        ].map((f) => (
+   760→          <Button
+   761→            key={f.id}
+   762→            size="sm"
+   763→            variant={filter === f.id ? "default" : "outline"}
+   764→            onClick={() => setFilter(f.id as typeof filter)}
+   765→            className={`h-9 rounded-full shrink-0 ${
+   766→              filter === f.id
+   767→                ? "bg-gradient-to-r from-rose-600 to-orange-500 text-white"
+   768→                : ""
+   769→            }`}
+   770→          >
+   771→            {f.label}
+   772→          </Button>
+   773→        ))}
+   774→      </div>
+   775→
+   776→      {loading ? (
+   777→        <div className="text-center text-slate-500 py-8">Chargement…</div>
+   778→      ) : withdrawals.length === 0 ? (
+   779→        <div className="rounded-2xl border bg-white p-8 text-center text-slate-500">
+   780→          Aucun retrait dans cette catégorie.
+   781→        </div>
+   782→      ) : (
+   783→        <div className="rounded-2xl border bg-white divide-y">
+   784→          {withdrawals.map((w) => (
+   785→            <div key={w.id} className="p-3">
+   786→              <div className="flex items-start gap-3">
+   787→                <div className="grid size-10 place-items-center rounded-xl bg-violet-50 shrink-0">
+   788→                  <Wallet className="size-5 text-violet-600" />
+   789→                </div>
+   790→                <div className="flex-1 min-w-0">
+   791→                  <div className="flex items-center justify-between gap-2">
+   792→                    <p className="font-bold text-slate-900">{formatFCFA(w.amount)}</p>
+   793→                    <span
+   794→                      className={`text-[10px] font-bold rounded-full px-2 py-0.5 ${
+   795→                        w.status === "COMPLETED"
+   796→                          ? "bg-emerald-100 text-emerald-700"
+   797→                          : w.status === "REJECTED"
+   798→                          ? "bg-rose-100 text-rose-700"
+   799→                          : "bg-amber-100 text-amber-700"
+   800→                      }`}
+   801→                    >
+   802→                      {w.status === "COMPLETED"
+   803→                        ? "Validé"
+   804→                        : w.status === "REJECTED"
+   805→                        ? "Refusé"
+   806→                        : "En attente"}
+   807→                    </span>
+   808→                  </div>
+   809→                  <p className="text-xs text-slate-500 mt-0.5">
+   810→                    Vendeur : <strong>{w.seller.username}</strong>
+   811→                  </p>
+   812→                  <p className="text-xs text-slate-500">
+   813→                    Wave : <strong>{w.waveNumber}</strong>
+   814→                  </p>
+   815→                  <p className="text-[11px] text-slate-400 mt-1">
+   816→                    {new Date(w.createdAt).toLocaleString("fr-FR")}
+   817→                  </p>
+   818→                  {w.status === "PENDING" && (
+   819→                    <div className="flex gap-2 mt-2">
+   820→                      <Button
+   821→                        size="sm"
+   822→                        onClick={() => handleAction(w, "validate")}
+   823→                        className="h-8 text-xs rounded-full bg-emerald-600 hover:bg-emerald-700 text-white"
+   824→                      >
+   825→                        <CheckCircle2 className="size-3.5" />
+   826→                        Valider
+   827→                      </Button>
+   828→                      <Button
+   829→                        size="sm"
+   830→                        variant="outline"
+   831→                        onClick={() => handleAction(w, "reject")}
+   832→                        className="h-8 text-xs rounded-full text-rose-600 border-rose-300 hover:bg-rose-50"
+   833→                      >
+   834→                        <X className="size-3.5" />
+   835→                        Refuser (rembourser)
+   836→                      </Button>
+   837→                    </div>
+   838→                  )}
+   839→                </div>
+   840→              </div>
+   841→            </div>
+   842→          ))}
+   843→        </div>
+   844→      )}
+   845→    </div>
+   846→  );
+   847→}
+   848→
+   849→function TicketsTab({ adminId }: { adminId: string }) {
+   850→  const [tickets, setTickets] = useState<any[]>([]);
+   851→  const [loading, setLoading] = useState(true);
+   852→  const [filter, setFilter] = useState<"ADMIN_HANDLED" | "OPEN" | "RESOLVED" | "ALL">("ADMIN_HANDLED");
+   853→  const [replyTarget, setReplyTarget] = useState<any | null>(null);
+   854→
+   855→  const load = useCallback(async () => {
+   856→    setLoading(true);
+   857→    try {
+   858→      const r = await fetch(
+   859→        `/api/support/admin/tickets?adminId=${adminId}&status=${filter}`
+   860→      );
+   861→      if (!r.ok) return;
+   862→      const d = await r.json();
+   863→      setTickets(d.tickets ?? []);
+   864→    } finally {
+   865→      setLoading(false);
+   866→    }
+   867→  }, [adminId, filter]);
+   868→
+   869→  useEffect(() => {
+   870→    load();
+   871→  }, [load]);
+   872→
+   873→  return (
+   874→    <div className="space-y-3">
+   875→      <div className="flex items-center gap-2 overflow-x-auto">
+   876→        {[
+   877→          { id: "ADMIN_HANDLED", label: "À traiter" },
+   878→          { id: "OPEN", label: "Ouverts" },
+   879→          { id: "RESOLVED", label: "Résolus" },
+   880→          { id: "ALL", label: "Tous" },
+   881→        ].map((f) => (
+   882→          <Button
+   883→            key={f.id}
+   884→            size="sm"
+   885→            variant={filter === f.id ? "default" : "outline"}
+   886→            onClick={() => setFilter(f.id as typeof filter)}
+   887→            className={`h-9 rounded-full shrink-0 ${
+   888→              filter === f.id
+   889→                ? "bg-gradient-to-r from-rose-600 to-orange-500 text-white"
+   890→                : ""
+   891→            }`}
+   892→          >
+   893→            {f.label}
+   894→          </Button>
+   895→        ))}
+   896→      </div>
+   897→
+   898→      {loading ? (
+   899→        <div className="text-center text-slate-500 py-8">Chargement…</div>
+   900→      ) : tickets.length === 0 ? (
+   901→        <div className="rounded-2xl border bg-white p-8 text-center text-slate-500">
+   902→          Aucun ticket dans cette catégorie. 🎉
+   903→        </div>
+   904→      ) : (
+   905→        <div className="space-y-3">
+   906→          {tickets.map((t) => (
+   907→            <div key={t.id} className="rounded-2xl border bg-white p-4 shadow-sm">
+   908→              <div className="flex items-start gap-3">
+   909→                <div className="grid size-10 place-items-center rounded-xl bg-cyan-50 text-xl shrink-0">
+   910→                  {CATEGORY_ICON[t.category as keyof typeof CATEGORY_ICON] ?? "❓"}
+   911→                </div>
+   912→                <div className="flex-1 min-w-0">
+   913→                  <div className="flex items-start justify-between gap-2">
+   914→                    <h3 className="font-bold text-slate-900 line-clamp-1">
+   915→                      {t.subject}
+   916→                    </h3>
+   917→                    {t.priority === "URGENT" && (
+   918→                      <span className="bg-rose-100 text-rose-700 rounded-full px-2 py-0.5 text-[10px] font-bold">
+   919→                        URGENT
+   920→                      </span>
+   921→                    )}
+   922→                  </div>
+   923→                  <p className="text-xs text-slate-500 mt-0.5">
+   924→                    Par <strong>{t.opener?.username}</strong> ·{" "}
+   925→                    {new Date(t.updatedAt).toLocaleString("fr-FR")}
+   926→                  </p>
+   927→                  {t.messages?.[t.messages.length - 1] && (
+   928→                    <div className="mt-2 bg-slate-50 rounded-lg p-2 text-xs text-slate-600">
+   929→                      <span className="font-semibold">
+   930→                        {t.messages[t.messages.length - 1].senderRole === "BOT"
+   931→                          ? "🤖 Bot"
+   932→                          : t.messages[t.messages.length - 1].senderRole === "ADMIN"
+   933→                          ? "🛡️ Admin"
+   934→                          : "👤 " + t.opener?.username}
+   935→                        :
+   936→                      </span>{" "}
+   937→                      {t.messages[t.messages.length - 1].content.slice(0, 120)}
+   938→                      {t.messages[t.messages.length - 1].content.length > 120 ? "…" : ""}
+   939→                    </div>
+   940→                  )}
+   941→                  <Button
+   942→                    size="sm"
+   943→                    onClick={() => setReplyTarget(t)}
+   944→                    className="h-8 mt-2 text-xs rounded-full bg-gradient-to-r from-sky-500 to-cyan-500 text-white"
+   945→                  >
+   946→                    <HeadphonesIcon className="size-3.5" />
+   947→                    Répondre
+   948→                  </Button>
+   949→                </div>
+   950→              </div>
+   951→            </div>
+   952→          ))}
+   953→        </div>
+   954→      )}
+   955→
+   956→      <AdminReplyDialog
+   957→        ticket={replyTarget}
+   958→        adminId={adminId}
+   959→        onClose={() => setReplyTarget(null)}
+   960→        onDone={load}
+   961→      />
+   962→    </div>
+   963→  );
+   964→}
+   965→
+   966→function AdminReplyDialog({
+   967→  ticket,
+   968→  adminId,
+   969→  onClose,
+   970→  onDone,
+   971→}: {
+   972→  ticket: any | null;
+   973→  adminId: string;
+   974→  onClose: () => void;
+   975→  onDone: () => void;
+   976→}) {
+   977→  const { toast } = useToast();
+   978→  const [content, setContent] = useState("");
+   979→  const [resolve, setResolve] = useState(false);
+   980→  const [saving, setSaving] = useState(false);
+   981→
+   982→  useEffect(() => {
+   983→    setContent("");
+   984→    setResolve(false);
+   985→  }, [ticket]);
+   986→
+   987→  async function submit() {
+   988→    if (!ticket || !content.trim()) return;
+   989→    setSaving(true);
+   990→    try {
+   991→      const r = await fetch(`/api/support/admin/tickets/${ticket.id}/reply`, {
+   992→        method: "POST",
+   993→        headers: { "Content-Type": "application/json" },
+   994→        body: JSON.stringify({
+   995→          adminId,
+   996→          content: content.trim(),
+   997→          resolve,
+   998→        }),
+   999→      });
+  1000→      if (!r.ok) throw new Error("Échec");
+  1001→      toast({ title: "Réponse envoyée ✅" });
+  1002→      onClose();
+  1003→      onDone();
+  1004→    } catch (e) {
+  1005→      toast({
+  1006→        title: "Erreur",
+  1007→        description: e instanceof Error ? e.message : "Erreur",
+  1008→        variant: "destructive",
+  1009→      });
+  1010→    } finally {
+  1011→      setSaving(false);
+  1012→    }
+  1013→  }
+  1014→
+  1015→  return (
+  1016→    <Dialog open={!!ticket} onOpenChange={(o) => !o && onClose()}>
+  1017→      <DialogContent className="sm:max-w-md rounded-3xl">
+  1018→        <DialogHeader>
+  1019→          <DialogTitle>Répondre à {ticket?.opener?.username}</DialogTitle>
+  1020→          <DialogDescription className="line-clamp-2">
+  1021→            {ticket?.subject}
+  1022→          </DialogDescription>
+  1023→        </DialogHeader>
+  1024→
+  1025→        {ticket?.messages && (
+  1026→          <div className="max-h-40 overflow-y-auto rounded-xl bg-slate-50 p-2 space-y-1">
+  1027→            {ticket.messages.map((m: any) => (
+  1028→              <div key={m.id} className="text-xs">
+  1029→                <span className="font-semibold text-slate-700">
+  1030→                  {m.senderRole === "BOT" ? "🤖 Bot" : m.senderRole === "ADMIN" ? "🛡️ Admin" : "👤 " + ticket.opener?.username}:
+  1031→                </span>{" "}
+  1032→                <span className="text-slate-600">{m.content}</span>
+  1033→              </div>
+  1034→            ))}
+  1035→          </div>
+  1036→        )}
+  1037→
+  1038→        <div className="space-y-2">
+  1039→          <Label className="text-sm font-semibold">Ta réponse</Label>
+  1040→          <textarea
+  1041→            value={content}
+  1042→            onChange={(e) => setContent(e.target.value)}
+  1043→            placeholder="Écris ta réponse à l'utilisateur…"
+  1044→            className="w-full min-h-[100px] rounded-xl border border-input bg-background p-3 text-sm"
+  1045→            maxLength={1000}
+  1046→          />
+  1047→          <label className="flex items-center gap-2 text-sm">
+  1048→            <input
+  1049→              type="checkbox"
+  1050→              checked={resolve}
+  1051→              onChange={(e) => setResolve(e.target.checked)}
+  1052→              className="size-4 rounded"
+  1053→            />
+  1054→            Marquer comme résolu
+  1055→          </label>
+  1056→        </div>
+  1057→
+  1058→        <DialogFooter className="gap-2">
+  1059→          <Button variant="ghost" onClick={onClose}>
+  1060→            Annuler
+  1061→          </Button>
+  1062→          <Button
+  1063→            disabled={saving || !content.trim()}
+  1064→            onClick={submit}
+  1065→            className="bg-gradient-to-r from-sky-500 to-cyan-500 text-white font-bold rounded-full"
+  1066→          >
+  1067→            {saving ? "Envoi…" : "Envoyer"}
+  1068→          </Button>
+  1069→        </DialogFooter>
+  1070→      </DialogContent>
+  1071→    </Dialog>
+  1072→  );
+  1073→}
+  1074→
+  1075→function AuditTab({ adminId }: { adminId: string }) {
+  1076→  const [logs, setLogs] = useState<AuditLog[]>([]);
+  1077→  const [loading, setLoading] = useState(true);
+  1078→
+  1079→  useEffect(() => {
+  1080→    (async () => {
+  1081→      try {
+  1082→        const r = await fetch(`/api/admin/audit?adminId=${adminId}&limit=100`);
+  1083→        if (!r.ok) return;
+  1084→        const d = await r.json();
+  1085→        setLogs(d.logs ?? []);
+  1086→      } finally {
+  1087→        setLoading(false);
+  1088→      }
+  1089→    })();
+  1090→  }, [adminId]);
+  1091→
+  1092→  if (loading) {
+  1093→    return <div className="text-center text-slate-500 py-8">Chargement…</div>;
+  1094→  }
+  1095→
+  1096→  if (logs.length === 0) {
+  1097→    return (
+  1098→      <div className="rounded-2xl border bg-white p-8 text-center text-slate-500">
+  1099→        Aucune action enregistrée.
+  1100→      </div>
+  1101→    );
+  1102→  }
+  1103→
+  1104→  const actionLabel: Record<string, string> = {
+  1105→    BAN_USER: "Bannir utilisateur",
+  1106→    UNBAN_USER: "Débannir utilisateur",
+  1107→    VALIDATE_WITHDRAWAL: "Valider retrait",
+  1108→    REJECT_WITHDRAWAL: "Refuser retrait",
+  1109→    REPLY_TICKET: "Répondre ticket",
+  1110→  };
+  1111→
+  1112→  return (
+  1113→    <div className="rounded-2xl border bg-white divide-y">
+  1114→      {logs.map((l) => (
+  1115→        <div key={l.id} className="flex items-start gap-3 p-3">
+  1116→          <div className="grid size-8 place-items-center rounded-lg bg-slate-100 text-sm shrink-0">
+  1117→            {l.action.includes("BAN") ? (
+  1118→              <Ban className="size-4 text-rose-500" />
+  1119→            ) : l.action.includes("WITHDRAWAL") ? (
+  1120→              <Wallet className="size-4 text-violet-500" />
+  1121→            ) : (
+  1122→              <Clock className="size-4 text-slate-500" />
+  1123→            )}
+  1124→          </div>
+  1125→          <div className="flex-1 min-w-0">
+  1126→            <p className="text-sm font-semibold text-slate-900">
+  1127→              {actionLabel[l.action] ?? l.action}
+  1128→            </p>
+  1129→            <p className="text-xs text-slate-500">
+  1130→              Par <strong>{l.actor?.username ?? "Système"}</strong>
+  1131→              {l.target && (
+  1132→                <>
+  1133→                  {" · "}
+  1134→                  Cible : <strong>{l.target.username}</strong>
+  1135→                </>
+  1136→              )}
+  1137→            </p>
+  1138→            {l.metadata && (
+  1139→              <p className="text-[11px] text-slate-400 mt-0.5 line-clamp-2">
+  1140→                {l.metadata}
+  1141→              </p>
+  1142→            )}
+  1143→            <p className="text-[10px] text-slate-400 mt-1">
+  1144→              {new Date(l.createdAt).toLocaleString("fr-FR")}
+  1145→            </p>
+  1146→          </div>
+  1147→        </div>
+  1148→      ))}
+  1149→    </div>
+  1150→  );
+  1151→}
+  1152→

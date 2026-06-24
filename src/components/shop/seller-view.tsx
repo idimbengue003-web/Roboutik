@@ -162,9 +162,11 @@ export function SellerView() {
           tint="bg-fuchsia-50"
         />
         <StatCard
-          icon={<Percent className="size-5 text-amber-600" />}
-          label="Commission 20%"
-          value={formatFCFA(data.totalCommission ?? 0)}
+          icon={<Star className="size-5 text-amber-600" />}
+          label="Ventes & avis"
+          value={`${data.validatedOrders.length} ventes · ${
+            data.listings.reduce((s, l) => s + l.ratings.length, 0)
+          } avis`}
           tint="bg-amber-50"
         />
       </div>

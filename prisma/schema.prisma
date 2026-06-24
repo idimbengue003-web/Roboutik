@@ -276,3 +276,20 @@ model ErrorLog {
   @@index([resolved, createdAt])
   @@schema("roboutik")
 }
+
+// Site-wide configuration: theme colors, hero text, etc.
+// Single-row table (id = "default").
+model SiteConfig {
+  id           String   @id @default("default")
+  // Theme colors (hex without #)
+  primaryColor String   @default("c026d3") // fuchsia-600
+  accentColor  String   @default("f97316") // orange-500
+  bgColor      String   @default("ffffff")
+  // Hero / branding
+  siteName     String   @default("RobloxBoutik")
+  heroTitle    String   @default("Achète tes items Roblox préférés")
+  heroSubtitle String   @default("Paiement Wave · Livraison rapide · Paiement sécurisé")
+  updatedAt    DateTime @updatedAt
+
+  @@schema("roboutik")
+}

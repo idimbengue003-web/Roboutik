@@ -32,6 +32,7 @@ import { useEffect, useState, useCallback } from "react";
 import type { AuditLog, User, Withdrawal } from "@/lib/types";
 import { formatFCFA } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
+import { CATEGORY_ICON } from "@/lib/support-bot";
 
 type AdminStats = {
   users: { total: number; sellers: number; banned: number };
@@ -80,9 +81,9 @@ export function AdminView() {
 }
 
 function AdminDashboard({ adminId }: { adminId: string }) {
-  const [tab, setTab] = useState<"overview" | "users" | "withdrawals" | "tickets" | "audit">(
-    "overview"
-  );
+  const [tab, setTab] = useState<
+    "overview" | "users" | "orders" | "categories" | "appearance" | "withdrawals" | "tickets" | "audit"
+  >("overview");
   const [stats, setStats] = useState<AdminStats | null>(null);
 
   const loadStats = useCallback(async () => {
@@ -127,6 +128,9 @@ function AdminDashboard({ adminId }: { adminId: string }) {
         {[
           { id: "overview", label: "Vue d'ensemble", icon: TrendingUp },
           { id: "users", label: "Utilisateurs", icon: Users },
+          { id: "orders", label: "Commandes", icon: Package },
+          { id: "categories", label: "Catégories", icon: CheckCircle2 },
+          { id: "appearance", label: "Apparence", icon: Shield },
           { id: "withdrawals", label: "Retraits", icon: ArrowDownToLine },
           { id: "tickets", label: "Support", icon: HeadphonesIcon },
           { id: "audit", label: "Journal", icon: Clock },
@@ -154,6 +158,9 @@ function AdminDashboard({ adminId }: { adminId: string }) {
 
       {tab === "overview" && <OverviewTab stats={stats} />}
       {tab === "users" && <UsersTab adminId={adminId} />}
+      {tab === "orders" && <OrdersTab adminId={adminId} />}
+      {tab === "categories" && <CategoriesTab adminId={adminId} />}
+      {tab === "appearance" && <AppearanceTab adminId={adminId} />}
       {tab === "withdrawals" && <WithdrawalsTab adminId={adminId} />}
       {tab === "tickets" && <TicketsTab adminId={adminId} />}
       {tab === "audit" && <AuditTab adminId={adminId} />}
@@ -296,6 +303,7 @@ function UsersTab({ adminId }: { adminId: string }) {
   const [bannedOnly, setBannedOnly] = useState(false);
   const [sellersOnly, setSellersOnly] = useState(false);
   const [banTarget, setBanTarget] = useState<AdminUser | null>(null);
+  const [listingsTarget, setListingsTarget] = useState<AdminUser | null>(null);
   const { toast } = useToast();
 
   const load = useCallback(async () => {
@@ -492,6 +500,17 @@ function UsersTab({ adminId }: { adminId: string }) {
                 )}
               </div>
               <div className="shrink-0 flex flex-col gap-1">
+                {u._count.listings > 0 && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setListingsTarget(u)}
+                    className="h-8 text-xs rounded-full text-fuchsia-600 border-fuchsia-300 hover:bg-fuchsia-50"
+                  >
+                    <Package className="size-3.5" />
+                    Annonces ({u._count.listings})
+                  </Button>
+                )}
                 {u.isBanned ? (
                   <Button
                     size="sm"
@@ -570,7 +589,127 @@ function UsersTab({ adminId }: { adminId: string }) {
         onClose={() => setBanTarget(null)}
         onConfirm={handleBan}
       />
+      <UserListingsDialog
+        user={listingsTarget}
+        adminId={adminId}
+        onClose={() => setListingsTarget(null)}
+      />
     </div>
+  );
+}
+
+function UserListingsDialog({
+  user,
+  adminId,
+  onClose,
+}: {
+  user: AdminUser | null;
+  adminId: string;
+  onClose: () => void;
+}) {
+  const [listings, setListings] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+  const { toast } = useToast();
+
+  useEffect(() => {
+    if (!user) {
+      setListings([]);
+      return;
+    }
+    setLoading(true);
+    (async () => {
+      try {
+        const r = await fetch(
+          `/api/admin/users/${user.id}/listings?adminId=${adminId}`
+        );
+        if (!r.ok) throw new Error("Échec");
+        const d = await r.json();
+        setListings(d.listings ?? []);
+      } catch (e) {
+        toast({
+          title: "Erreur",
+          description: e instanceof Error ? e.message : "?",
+          variant: "destructive",
+        });
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, [user, adminId, toast]);
+
+  return (
+    <Dialog open={!!user} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="sm:max-w-2xl rounded-3xl max-h-[85vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Package className="size-5 text-fuchsia-600" />
+            Annonces de {user?.username}
+          </DialogTitle>
+          <DialogDescription>
+            {user?._count?.listings ?? 0} annonce(s) au total — cliquez sur une ligne pour l'ouvrir.
+          </DialogDescription>
+        </DialogHeader>
+
+        {loading ? (
+          <div className="text-center py-6 text-slate-500 text-sm">Chargement…</div>
+        ) : listings.length === 0 ? (
+          <div className="text-center py-6 text-slate-500 text-sm">
+            Aucune annonce.
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {listings.map((l) => (
+              <a
+                key={l.id}
+                href={`/listing/${l.id}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-3 p-2 rounded-xl border hover:bg-slate-50 transition-colors"
+              >
+                <div className="grid size-12 place-items-center rounded-lg bg-slate-100 text-xl shrink-0 overflow-hidden">
+                  {l.images ? (
+                    <img
+                      src={JSON.parse(l.images)[0]}
+                      alt={l.title}
+                      className="size-full object-cover"
+                    />
+                  ) : (
+                    "🎮"
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold text-slate-900 line-clamp-1">
+                    {l.title}
+                  </p>
+                  <p className="text-xs text-slate-500">
+                    {l.game?.name ?? "—"} · Stock : {l.stock} ·{" "}
+                    {l.active ? (
+                      <span className="text-emerald-600 font-medium">Active</span>
+                    ) : (
+                      <span className="text-slate-400">Inactive</span>
+                    )}
+                  </p>
+                  <p className="text-[11px] text-slate-400">
+                    {l._count?.orders ?? 0} commande(s) · {l._count?.ratings ?? 0} avis
+                  </p>
+                </div>
+                <div className="shrink-0 text-right">
+                  <p className="font-bold text-fuchsia-600">
+                    {formatFCFA(l.price)}
+                  </p>
+                </div>
+              </a>
+            ))}
+          </div>
+        )}
+
+        <DialogFooter>
+          <Button variant="ghost" onClick={onClose}>
+            Fermer
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -1146,6 +1285,693 @@ function AuditTab({ adminId }: { adminId: string }) {
           </div>
         </div>
       ))}
+    </div>
+  );
+}
+
+/* ────────────────────────────────────────────────────────────────────── */
+/* Orders tab — admin can view all orders, cancel, force-validate          */
+/* ────────────────────────────────────────────────────────────────────── */
+
+function OrdersTab({ adminId }: { adminId: string }) {
+  const [orders, setOrders] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState<string>("ALL");
+  const [q, setQ] = useState("");
+  const { toast } = useToast();
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const params = new URLSearchParams({ adminId });
+      if (filter !== "ALL") params.set("status", filter);
+      if (q) params.set("q", q);
+      const r = await fetch(`/api/admin/orders?${params.toString()}`);
+      if (!r.ok) return;
+      const d = await r.json();
+      setOrders(d.orders ?? []);
+    } finally {
+      setLoading(false);
+    }
+  }, [adminId, filter, q]);
+
+  useEffect(() => {
+    const t = setTimeout(load, 300);
+    return () => clearTimeout(t);
+  }, [load]);
+
+  async function handleAction(orderId: string, action: "cancel" | "validate") {
+    if (!confirm(action === "cancel" ? "Annuler cette commande ?" : "Forcer la validation ?")) return;
+    try {
+      const r = await fetch(`/api/admin/orders/${orderId}/${action}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ adminId }),
+      });
+      if (!r.ok) {
+        const e = await r.json().catch(() => ({}));
+        throw new Error(e.error ?? "Échec");
+      }
+      toast({
+        title: action === "cancel" ? "Commande annulée" : "Commande validée ✅",
+      });
+      load();
+    } catch (e) {
+      toast({
+        title: "Erreur",
+        description: e instanceof Error ? e.message : "?",
+        variant: "destructive",
+      });
+    }
+  }
+
+  const filters = [
+    { id: "ALL", label: "Toutes" },
+    { id: "PENDING_PAYMENT", label: "Paiement en attente" },
+    { id: "PAID", label: "Payées" },
+    { id: "DELIVERED", label: "Livraisons en cours" },
+    { id: "VALIDATED", label: "Validées" },
+    { id: "CANCELLED", label: "Annulées" },
+  ];
+
+  return (
+    <div className="space-y-3">
+      <div className="rounded-2xl border bg-white p-3 flex flex-wrap items-center gap-2">
+        <div className="relative flex-1 min-w-[200px]">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-slate-400" />
+          <Input
+            placeholder="Rechercher par titre, acheteur ou vendeur…"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            className="h-9 pl-9 rounded-full"
+          />
+        </div>
+      </div>
+
+      <div className="flex items-center gap-2 overflow-x-auto pb-1">
+        {filters.map((f) => (
+          <Button
+            key={f.id}
+            size="sm"
+            variant={filter === f.id ? "default" : "outline"}
+            onClick={() => setFilter(f.id)}
+            className={`h-9 rounded-full shrink-0 ${
+              filter === f.id
+                ? "bg-gradient-to-r from-rose-600 to-orange-500 text-white"
+                : ""
+            }`}
+          >
+            {f.label}
+          </Button>
+        ))}
+      </div>
+
+      {loading ? (
+        <div className="text-center text-slate-500 py-8">Chargement…</div>
+      ) : orders.length === 0 ? (
+        <div className="rounded-2xl border bg-white p-8 text-center text-slate-500">
+          Aucune commande dans ce filtre.
+        </div>
+      ) : (
+        <div className="rounded-2xl border bg-white divide-y">
+          {orders.map((o) => (
+            <div key={o.id} className="p-3">
+              <div className="flex items-start gap-3">
+                <div className="grid size-10 place-items-center rounded-xl bg-fuchsia-50 shrink-0">
+                  <Package className="size-5 text-fuchsia-600" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="font-bold text-slate-900 line-clamp-1">
+                        {o.listing?.title ?? "—"}
+                      </p>
+                      <p className="text-xs text-slate-500 mt-0.5">
+                        {o.listing?.game?.name ?? "—"} ·{" "}
+                        <strong>{formatFCFA(o.amount)}</strong>
+                        {o.sellerNetAmount != null && o.sellerNetAmount !== o.amount && (
+                          <span className="text-slate-400">
+                            {" "}(net vendeur : {formatFCFA(o.sellerNetAmount)})
+                          </span>
+                        )}
+                      </p>
+                    </div>
+                    <span
+                      className={`shrink-0 text-[10px] font-bold rounded-full px-2 py-0.5 ${
+                        o.status === "VALIDATED"
+                          ? "bg-emerald-100 text-emerald-700"
+                          : o.status === "CANCELLED"
+                          ? "bg-rose-100 text-rose-700"
+                          : o.status === "DELIVERED"
+                          ? "bg-violet-100 text-violet-700"
+                          : o.status === "PAID"
+                          ? "bg-sky-100 text-sky-700"
+                          : "bg-amber-100 text-amber-700"
+                      }`}
+                    >
+                      {o.status}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-3 text-[11px] text-slate-500 mt-1">
+                    <span>
+                      🛒 Vendeur : <strong>{o.seller?.username ?? "—"}</strong>
+                    </span>
+                    <span>
+                      🧑 Acheteur : <strong>{o.buyer?.username ?? "—"}</strong>
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-400 mt-0.5">
+                    {new Date(o.createdAt).toLocaleString("fr-FR")}
+                  </p>
+                  {(o.status === "PAID" || o.status === "DELIVERED" || o.status === "PENDING_PAYMENT") && (
+                    <div className="flex gap-2 mt-2">
+                      {(o.status === "PAID" || o.status === "DELIVERED") && (
+                        <Button
+                          size="sm"
+                          onClick={() => handleAction(o.id, "validate")}
+                          className="h-7 text-xs rounded-full bg-emerald-600 hover:bg-emerald-700 text-white"
+                        >
+                          <CheckCircle2 className="size-3" />
+                          Valider
+                        </Button>
+                      )}
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleAction(o.id, "cancel")}
+                        className="h-7 text-xs rounded-full text-rose-600 border-rose-300 hover:bg-rose-50"
+                      >
+                        <X className="size-3" />
+                        Annuler
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ────────────────────────────────────────────────────────────────────── */
+/* Categories tab — admin can create / edit / delete games                 */
+/* ────────────────────────────────────────────────────────────────────── */
+
+function CategoriesTab({ adminId }: { adminId: string }) {
+  const [games, setGames] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [editing, setEditing] = useState<any | null>(null);
+  const [creating, setCreating] = useState(false);
+  const { toast } = useToast();
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const r = await fetch("/api/games");
+      if (!r.ok) return;
+      const d = await r.json();
+      setGames(d.games ?? []);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  async function handleDelete(g: any) {
+    if (!confirm(`Supprimer la catégorie « ${g.name} » ?`)) return;
+    try {
+      const r = await fetch(`/api/admin/games/${g.id}?adminId=${adminId}`, {
+        method: "DELETE",
+      });
+      if (!r.ok) {
+        const e = await r.json().catch(() => ({}));
+        throw new Error(e.error ?? "Échec");
+      }
+      toast({ title: "Catégorie supprimée" });
+      load();
+    } catch (e) {
+      toast({
+        title: "Erreur",
+        description: e instanceof Error ? e.message : "?",
+        variant: "destructive",
+      });
+    }
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <p className="text-sm text-slate-500">
+          {games.length} catégorie(s). Les nouvelles catégories apparaissent immédiatement dans la liste des jeux.
+        </p>
+        <Button
+          size="sm"
+          onClick={() => setCreating(true)}
+          className="rounded-full bg-gradient-to-r from-fuchsia-600 to-orange-500 text-white"
+        >
+          + Nouvelle catégorie
+        </Button>
+      </div>
+
+      {loading ? (
+        <div className="text-center text-slate-500 py-8">Chargement…</div>
+      ) : games.length === 0 ? (
+        <div className="rounded-2xl border bg-white p-8 text-center text-slate-500">
+          Aucune catégorie.
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+          {games.map((g) => (
+            <div
+              key={g.id}
+              className="rounded-2xl border bg-white p-3 flex flex-col items-center text-center"
+            >
+              <div className="grid size-14 place-items-center rounded-xl bg-slate-100 text-2xl overflow-hidden mb-2">
+                {g.image?.startsWith("data:image/") || g.image?.startsWith("http") ? (
+                  <img src={g.image} alt={g.name} className="size-full object-cover" />
+                ) : (
+                  <span>{g.image || "🎮"}</span>
+                )}
+              </div>
+              <p className="font-bold text-slate-900 text-sm line-clamp-1">{g.name}</p>
+              {g.isFavorite && (
+                <span className="text-[10px] text-amber-600 font-bold mt-0.5">⭐ Favori</span>
+              )}
+              <p className="text-[10px] text-slate-400 mt-0.5">
+                Ordre : {g.sortOrder}
+              </p>
+              <div className="flex gap-1 mt-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setEditing(g)}
+                  className="h-7 text-[11px] rounded-full"
+                >
+                  Modifier
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => handleDelete(g)}
+                  className="h-7 text-[11px] rounded-full text-rose-600 border-rose-300 hover:bg-rose-50"
+                >
+                  Supprimer
+                </Button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <CategoryEditDialog
+        open={creating || !!editing}
+        game={editing}
+        adminId={adminId}
+        onClose={() => {
+          setCreating(false);
+          setEditing(null);
+        }}
+        onSaved={() => {
+          setCreating(false);
+          setEditing(null);
+          load();
+        }}
+      />
+    </div>
+  );
+}
+
+function CategoryEditDialog({
+  open,
+  game,
+  adminId,
+  onClose,
+  onSaved,
+}: {
+  open: boolean;
+  game: any | null;
+  adminId: string;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [name, setName] = useState("");
+  const [image, setImage] = useState("");
+  const [description, setDescription] = useState("");
+  const [isFavorite, setIsFavorite] = useState(false);
+  const [sortOrder, setSortOrder] = useState(0);
+  const [saving, setSaving] = useState(false);
+  const { toast } = useToast();
+
+  useEffect(() => {
+    if (game) {
+      setName(game.name ?? "");
+      setImage(game.image ?? "");
+      setDescription(game.description ?? "");
+      setIsFavorite(game.isFavorite ?? false);
+      setSortOrder(game.sortOrder ?? 0);
+    } else if (open) {
+      setName("");
+      setImage("");
+      setDescription("");
+      setIsFavorite(false);
+      setSortOrder(0);
+    }
+  }, [game, open]);
+
+  async function submit() {
+    if (!name.trim()) {
+      toast({ title: "Nom requis", variant: "destructive" });
+      return;
+    }
+    setSaving(true);
+    try {
+      const payload = {
+        name: name.trim(),
+        image: image.trim() || "🎮",
+        description: description.trim(),
+        isFavorite,
+        sortOrder: Number(sortOrder) || 0,
+      };
+      const url = game
+        ? `/api/admin/games/${game.id}?adminId=${adminId}`
+        : `/api/admin/games?adminId=${adminId}`;
+      const method = game ? "PATCH" : "POST";
+      const r = await fetch(url, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (!r.ok) {
+        const e = await r.json().catch(() => ({}));
+        throw new Error(e.error ?? "Échec");
+      }
+      toast({ title: game ? "Catégorie mise à jour" : "Catégorie créée ✅" });
+      onSaved();
+    } catch (e) {
+      toast({
+        title: "Erreur",
+        description: e instanceof Error ? e.message : "?",
+        variant: "destructive",
+      });
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="sm:max-w-md rounded-3xl">
+        <DialogHeader>
+          <DialogTitle>
+            {game ? "Modifier la catégorie" : "Nouvelle catégorie"}
+          </DialogTitle>
+          <DialogDescription>
+            Les catégories apparaissent dans la liste des jeux sur la page d'accueil.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-3">
+          <div>
+            <Label className="text-sm font-semibold">Nom du jeu *</Label>
+            <Input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Ex : Pet Simulator 99"
+              className="rounded-xl mt-1"
+              maxLength={80}
+            />
+          </div>
+          <div>
+            <Label className="text-sm font-semibold">Image (emoji ou URL)</Label>
+            <Input
+              value={image}
+              onChange={(e) => setImage(e.target.value)}
+              placeholder="Ex : 🐾 ou https://..."
+              className="rounded-xl mt-1"
+              maxLength={5000}
+            />
+            <p className="text-[11px] text-slate-400 mt-1">
+              Mets un emoji (ex : 🐾) ou l'URL d'une image.
+            </p>
+          </div>
+          <div>
+            <Label className="text-sm font-semibold">Description</Label>
+            <textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="Courte description du jeu…"
+              className="w-full min-h-[60px] rounded-xl border bg-background p-2 text-sm mt-1"
+              maxLength={500}
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label className="text-sm font-semibold">Ordre</Label>
+              <Input
+                type="number"
+                value={sortOrder}
+                onChange={(e) => setSortOrder(Number(e.target.value))}
+                min={0}
+                className="rounded-xl mt-1"
+              />
+            </div>
+            <label className="flex items-end gap-2 text-sm pb-2">
+              <input
+                type="checkbox"
+                checked={isFavorite}
+                onChange={(e) => setIsFavorite(e.target.checked)}
+                className="size-4 rounded"
+              />
+              ⭐ Favori (en haut)
+            </label>
+          </div>
+        </div>
+        <DialogFooter className="gap-2">
+          <Button variant="ghost" onClick={onClose}>
+            Annuler
+          </Button>
+          <Button
+            disabled={saving || !name.trim()}
+            onClick={submit}
+            className="bg-gradient-to-r from-fuchsia-600 to-orange-500 text-white font-bold rounded-full"
+          >
+            {saving ? "Enregistrement…" : game ? "Enregistrer" : "Créer"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/* ────────────────────────────────────────────────────────────────────── */
+/* Appearance tab — admin can change theme colors + hero text              */
+/* ────────────────────────────────────────────────────────────────────── */
+
+function AppearanceTab({ adminId }: { adminId: string }) {
+  const [config, setConfig] = useState<any | null>(null);
+  const [saving, setSaving] = useState(false);
+  const { toast } = useToast();
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const r = await fetch("/api/site-config");
+        if (!r.ok) return;
+        const d = await r.json();
+        setConfig(d.config);
+      } catch {
+        /* noop */
+      }
+    })();
+  }, []);
+
+  async function save(patch: Record<string, string>) {
+    setSaving(true);
+    try {
+      const r = await fetch(`/api/site-config?adminId=${adminId}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(patch),
+      });
+      if (!r.ok) {
+        const e = await r.json().catch(() => ({}));
+        throw new Error(e.error ?? "Échec");
+      }
+      const d = await r.json();
+      setConfig(d.config);
+      toast({ title: "Apparence mise à jour ✅", description: "Recharge la page pour voir le résultat." });
+    } catch (e) {
+      toast({
+        title: "Erreur",
+        description: e instanceof Error ? e.message : "?",
+        variant: "destructive",
+      });
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (!config) {
+    return <div className="text-center text-slate-500 py-8">Chargement…</div>;
+  }
+
+  const presets = [
+    { name: "Fuchsia / Orange (défaut)", primary: "c026d3", accent: "f97316", bg: "ffffff" },
+    { name: "Violet / Cyan", primary: "7c3aed", accent: "06b6d4", bg: "ffffff" },
+    { name: "Rose / Jaune", primary: "ec4899", accent: "eab308", bg: "ffffff" },
+    { name: "Bleu / Vert", primary: "2563eb", accent: "16a34a", bg: "ffffff" },
+    { name: "Rouge / Or", primary: "dc2626", accent: "d97706", bg: "ffffff" },
+    { name: "Noir / Violet (sombre)", primary: "8b5cf6", accent: "ec4899", bg: "0f172a" },
+  ];
+
+  return (
+    <div className="space-y-4">
+      <div className="rounded-2xl border bg-white p-4 space-y-3">
+        <h3 className="font-bold text-slate-900">🎨 Thème du site</h3>
+        <p className="text-xs text-slate-500">
+          Les couleurs sont appliquées sur tout le site via des variables CSS. Choisis un préréglage ou personnalise chaque couleur.
+        </p>
+
+        <div>
+          <Label className="text-sm font-semibold mb-2 block">Préréglages rapides</Label>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+            {presets.map((p) => (
+              <button
+                key={p.name}
+                onClick={() => save({ primaryColor: p.primary, accentColor: p.accent, bgColor: p.bg })}
+                disabled={saving}
+                className="text-left rounded-xl border hover:border-slate-400 transition-colors overflow-hidden"
+              >
+                <div
+                  className="h-10 flex"
+                  style={{
+                    backgroundImage: `linear-gradient(135deg, #${p.primary} 0%, #${p.accent} 100%)`,
+                  }}
+                />
+                <p className="text-xs font-medium text-slate-700 p-2 line-clamp-1">{p.name}</p>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-3 gap-3 pt-2 border-t">
+          <ColorField
+            label="Couleur primaire"
+            value={config.primaryColor}
+            onSave={(v) => save({ primaryColor: v })}
+            disabled={saving}
+          />
+          <ColorField
+            label="Couleur accent"
+            value={config.accentColor}
+            onSave={(v) => save({ accentColor: v })}
+            disabled={saving}
+          />
+          <ColorField
+            label="Couleur de fond"
+            value={config.bgColor}
+            onSave={(v) => save({ bgColor: v })}
+            disabled={saving}
+          />
+        </div>
+
+        <div className="pt-3 border-t">
+          <div
+            className="h-16 rounded-xl flex items-center justify-center text-white font-bold"
+            style={{
+              backgroundImage: `linear-gradient(135deg, #${config.primaryColor} 0%, #${config.accentColor} 100%)`,
+            }}
+          >
+            Aperçu du dégradé
+          </div>
+        </div>
+      </div>
+
+      <div className="rounded-2xl border bg-white p-4 space-y-3">
+        <h3 className="font-bold text-slate-900">📝 Textes de la page d'accueil</h3>
+        <div>
+          <Label className="text-sm font-semibold">Nom du site</Label>
+          <Input
+            defaultValue={config.siteName}
+            onBlur={(e) => {
+              if (e.target.value !== config.siteName) save({ siteName: e.target.value });
+            }}
+            className="rounded-xl mt-1"
+            maxLength={50}
+          />
+        </div>
+        <div>
+          <Label className="text-sm font-semibold">Titre principal (hero)</Label>
+          <Input
+            defaultValue={config.heroTitle}
+            onBlur={(e) => {
+              if (e.target.value !== config.heroTitle) save({ heroTitle: e.target.value });
+            }}
+            className="rounded-xl mt-1"
+            maxLength={120}
+          />
+        </div>
+        <div>
+          <Label className="text-sm font-semibold">Sous-titre (hero)</Label>
+          <Input
+            defaultValue={config.heroSubtitle}
+            onBlur={(e) => {
+              if (e.target.value !== config.heroSubtitle) save({ heroSubtitle: e.target.value });
+            }}
+            className="rounded-xl mt-1"
+            maxLength={200}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ColorField({
+  label,
+  value,
+  onSave,
+  disabled,
+}: {
+  label: string;
+  value: string;
+  onSave: (v: string) => void;
+  disabled: boolean;
+}) {
+  return (
+    <div>
+      <Label className="text-xs font-semibold">{label}</Label>
+      <div className="flex items-center gap-2 mt-1">
+        <input
+          type="color"
+          defaultValue={`#${value}`}
+          onChange={(e) => {
+            const v = e.target.value.replace(/^#/, "");
+            // Save on change (debounced via blur on text input below is complex; immediate save is fine)
+          }}
+          onBlur={(e) => {
+            const v = e.target.value.replace(/^#/, "");
+            if (v !== value) onSave(v);
+          }}
+          className="size-10 rounded-lg border cursor-pointer"
+          disabled={disabled}
+        />
+        <Input
+          defaultValue={value}
+          onBlur={(e) => {
+            const v = e.target.value.replace(/^#/, "").toLowerCase();
+            if (/^[0-9a-f]{6}$/.test(v) && v !== value) onSave(v);
+          }}
+          className="rounded-lg text-xs font-mono"
+          maxLength={7}
+          disabled={disabled}
+        />
+      </div>
     </div>
   );
 }
