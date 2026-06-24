@@ -951,7 +951,7 @@ function CreateListingDialog({
               <Label className="text-[11px] font-bold uppercase tracking-wide text-fuchsia-700 flex items-center gap-1.5">
                 🛒 Prix affiché aux acheteurs
                 <span className="text-[10px] font-medium text-fuchsia-600 bg-fuchsia-100 rounded-full px-2 py-0.5 normal-case tracking-normal">
-                  +20% commission
+                  +16% commission
                 </span>
               </Label>
               <div className="mt-1 flex items-baseline gap-2">

@@ -46,7 +46,7 @@ export async function POST(
         data: {
           orderId: order.id,
           senderId: order.sellerId,
-          content: `🛡️ ROBLOX BOUTIK — Commande validée. Le vendeur a reçu ${netAmount} FCFA (montant net après commission de 20%, soit ${commission} FCFA conservés par la plateforme). Merci pour votre achat !`,
+          content: `🛡️ ROBLOX BOUTIK — Commande validée. Le vendeur a reçu ${netAmount} FCFA (montant net après commission de 16%, soit ${commission} FCFA conservés par la plateforme). Merci pour votre achat !`,
           isAuto: true,
         },
       }),

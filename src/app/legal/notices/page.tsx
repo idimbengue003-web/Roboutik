@@ -79,7 +79,7 @@ export default function LegalNoticesPage() {
             <p className="text-sm text-slate-700">
               Les paiements sont traités par Wave Business (Wave Sénégal).
               Roboutik ne stocke aucune information bancaire.
-              Une commission de 20% est prélevée par la plateforme sur chaque vente validée.
+              Une commission de 16% est prélevée par la plateforme sur chaque vente validée.
             </p>
           </section>
 

@@ -178,7 +178,7 @@ function OverviewTab({ stats }: { stats: AdminStats | null }) {
       {/* Revenue card */}
       <div className="rounded-2xl bg-gradient-to-br from-rose-500 via-orange-500 to-amber-400 p-5 text-white shadow-lg">
         <p className="text-xs opacity-90 uppercase tracking-wide font-semibold">
-          Commission plateforme (20%)
+          Commission plateforme (16%)
         </p>
         <p className="text-4xl font-extrabold mt-1">
           {formatFCFA(stats.revenue.totalCommission)}

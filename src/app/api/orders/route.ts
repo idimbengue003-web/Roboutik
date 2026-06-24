@@ -50,7 +50,7 @@ export async function GET(req: NextRequest) {
           data: {
             orderId: o.id,
             senderId: o.sellerId,
-            content: `🛡️ ROBLOX BOUTIK — Validation automatique. Le vendeur a reçu ${netAmount} FCFA (montant net après commission de 20%, soit ${commission} FCFA conservés par la plateforme). Merci pour votre achat !`,
+            content: `🛡️ ROBLOX BOUTIK — Validation automatique. Le vendeur a reçu ${netAmount} FCFA (montant net après commission de 16%, soit ${commission} FCFA conservés par la plateforme). Merci pour votre achat !`,
             isAuto: true,
           },
         }),
