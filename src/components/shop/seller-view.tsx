@@ -32,7 +32,7 @@ import {
 } from "lucide-react";
 import { useEffect, useState, useCallback } from "react";
 import type { Listing, Order, User, Withdrawal, Game } from "@/lib/types";
-import { formatFCFA } from "@/lib/types";
+import { formatFCFA, getListingImages } from "@/lib/types";
 import { RatingBadge } from "./rating-modal";
 import { useToast } from "@/hooks/use-toast";
 
@@ -616,6 +616,7 @@ function EditListingDialog({
     String(typeof listing.stock === "number" ? listing.stock : 1)
   );
   const [active, setActive] = useState(listing.active);
+  const [images, setImages] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
 
   // Reset form fields whenever the dialog opens for a (possibly new) listing
@@ -628,6 +629,8 @@ function EditListingDialog({
       );
       setStock(String(typeof listing.stock === "number" ? listing.stock : 1));
       setActive(listing.active);
+      // Load existing images into the editor
+      setImages(getListingImages(listing));
     }
   }, [open, listing]);
 
@@ -668,6 +671,7 @@ function EditListingDialog({
           sellerNetPrice: net,
           stock: stockNum,
           active,
+          images: images.length > 0 ? JSON.stringify(images) : null,
         }),
       });
       if (!r.ok) {
@@ -698,6 +702,13 @@ function EditListingDialog({
         </DialogHeader>
 
         <div className="space-y-3">
+          <div>
+            <Label className="text-sm font-semibold">Photos</Label>
+            <p className="text-[11px] text-slate-500 mb-2">
+              Ajoute jusqu'à 4 photos. Les anciennes sont conservées si tu n'en rajoutes pas.
+            </p>
+            <ImageUpload images={images} onChange={setImages} />
+          </div>
           <div>
             <Label className="text-sm font-semibold">Titre</Label>
             <Input
