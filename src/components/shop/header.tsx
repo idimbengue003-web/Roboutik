@@ -18,7 +18,7 @@ export function Header() {
     let cancelled = false;
     (async () => {
       try {
-        const r = await fetch(`/api/orders?buyerId=${me.id}`);
+        const r = await fetch(`/api/orders?userId=${me.id}`);
         if (!r.ok) return;
         const d = await r.json();
         if (cancelled) return;

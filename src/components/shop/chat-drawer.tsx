@@ -39,7 +39,7 @@ export function ChatDrawer() {
   const load = useCallback(async () => {
     if (!activeOrderId) return;
     try {
-      const r = await fetch(`/api/orders?buyerId=${me?.id ?? ""}`);
+      const r = await fetch(`/api/orders?userId=${me?.id ?? ""}`);
       if (!r.ok) return;
       const d = await r.json();
       const o = (d.orders ?? []).find((x: Order) => x.id === activeOrderId);

@@ -22,7 +22,8 @@ export function OrdersView() {
     }
     setLoading(true);
     try {
-      const r = await fetch(`/api/orders?buyerId=${me.id}`);
+      // Use userId to fetch orders where user is buyer OR seller
+      const r = await fetch(`/api/orders?userId=${me.id}`);
       if (!r.ok) return;
       const d = await r.json();
       setOrders(d.orders ?? []);
@@ -126,6 +127,7 @@ export function OrdersView() {
                 now={now}
                 onOpen={() => setActiveOrderId(o.id)}
                 onRate={() => setRateOrderId(o.id)}
+                currentUserId={me.id}
               />
             ))}
           </div>
@@ -145,6 +147,7 @@ export function OrdersView() {
                 now={now}
                 onOpen={() => setActiveOrderId(o.id)}
                 onRate={() => setRateOrderId(o.id)}
+                currentUserId={me.id}
               />
             ))}
           </div>
@@ -159,15 +162,21 @@ function OrderCard({
   now,
   onOpen,
   onRate,
+  currentUserId,
 }: {
   order: Order;
   now: number;
   onOpen: () => void;
   onRate: () => void;
+  currentUserId: string;
 }) {
   const statusLabel = STATUS_LABEL[order.status];
   const statusColor = STATUS_COLOR[order.status];
   const lastMsg = order.messages?.[order.messages.length - 1];
+
+  // Is the current user the buyer or the seller of this order?
+  const isSeller = order.sellerId === currentUserId;
+  const isBuyer = order.buyerId === currentUserId;
 
   // Countdown to auto-validation
   const autoMs =
@@ -175,14 +184,14 @@ function OrderCard({
       ? new Date(order.autoValidateAt).getTime() - now
       : null;
 
-  const canRate = order.status === "VALIDATED" && !order.rating;
+  const canRate = order.status === "VALIDATED" && !order.rating && isBuyer;
   const hasRating = order.status === "VALIDATED" && order.rating;
 
   return (
     <div className="rounded-2xl border bg-white p-4 shadow-sm hover:shadow-md transition-all">
       <div className="flex items-start gap-3">
         <div className="grid size-12 place-items-center rounded-xl bg-gradient-to-br from-fuchsia-100 to-orange-100 text-2xl shrink-0">
-          🎮
+          {isSeller ? "🛒" : "🎮"}
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between gap-2">
@@ -198,6 +207,19 @@ function OrderCard({
           <p className="text-xs text-slate-500 mt-0.5">
             {order.listing?.game?.name} · {formatFCFA(order.amount)}
           </p>
+          {/* Role badge: Vente (seller) or Achat (buyer) */}
+          <div className="mt-1.5 flex items-center gap-1.5">
+            {isSeller && (
+              <span className="inline-flex items-center gap-0.5 text-[10px] font-bold text-emerald-700 bg-emerald-100 rounded-full px-2 py-0.5">
+                🛒 Vente — acheteur : {order.buyer?.username ?? "—"}
+              </span>
+            )}
+            {isBuyer && (
+              <span className="inline-flex items-center gap-0.5 text-[10px] font-bold text-sky-700 bg-sky-100 rounded-full px-2 py-0.5">
+                🛍️ Achat — vendeur : {order.seller?.username ?? "—"}
+              </span>
+            )}
+          </div>
 
           {/* Rating display */}
           {hasRating && (

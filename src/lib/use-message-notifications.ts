@@ -59,8 +59,8 @@ export function useMessageNotifications() {
           }
         }
 
-        // 2. Poll all orders (chat after purchase)
-        const ordersRes = await fetch(`/api/orders?buyerId=${me.id}`);
+        // 2. Poll all orders (chat after purchase) — buyer OR seller
+        const ordersRes = await fetch(`/api/orders?userId=${me.id}`);
         if (ordersRes.ok) {
           const ordersData = await ordersRes.json();
           const orders = ordersData.orders ?? [];
