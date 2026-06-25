@@ -79,13 +79,13 @@ export function ChatDrawer() {
   }, [messages]);
 
   async function handleSend() {
-    if (!input.trim() || !activeOrderId) return;
+    if (!input.trim() || !activeOrderId || !me) return;
     setSending(true);
     try {
       const r = await fetch(`/api/orders/${activeOrderId}/messages`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content: input }),
+        body: JSON.stringify({ userId: me.id, content: input }),
       });
       if (!r.ok) throw new Error("Échec envoi message");
       const d = await r.json();

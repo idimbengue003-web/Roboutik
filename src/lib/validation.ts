@@ -59,6 +59,7 @@ export const payOrderSchema = z.object({
 });
 
 export const orderMessageSchema = z.object({
+  userId: z.string().min(1, "userId requis"),
   content: z
     .string()
     .trim()
