@@ -119,8 +119,8 @@ export async function POST(req: NextRequest) {
       data: { updatedAt: new Date() },
     });
 
-    // Send notification to the SELLER
-    await sendNotification({
+    // Send notification to the SELLER (fire-and-forget for instant response)
+    sendNotification({
       userId: listing.sellerId,
       type: "NEW_MESSAGE",
       subject: `Nouveau message de ${buyer!.username}`,
@@ -134,12 +134,13 @@ export async function POST(req: NextRequest) {
          <p style="background:#fef3c7; padding:12px; border-radius:8px; border-left:3px solid #f59e0b;">
            ${firstMessage.replace(/\n/g, "<br>")}
          </p>
-         <p style="margin-top:16px;">Connecte-toi à Roboutik pour répondre à ${buyer!.username}.</p>`
+         <p style="margin-top:16px;">Connecte-toi à RobloxBoutik pour répondre à ${buyer!.username}.</p>
+         <p style="margin-top:24px;"><a href="https://robloxboutik.com" style="background:#c026d3;color:white;padding:12px 24px;border-radius:9999px;text-decoration:none;font-weight:bold;">Répondre</a></p>`
       ),
-      whatsappBody: `🎮 Roboutik : ${buyer!.username} t'a écrit au sujet de "${listing.title}" (${listing.price} FCFA). Connecte-toi pour répondre.`,
+      whatsappBody: `🎮 RobloxBoutik : ${buyer!.username} t'a écrit au sujet de "${listing.title}" (${listing.price} FCFA). Connecte-toi pour répondre.`,
       refType: "CONVERSATION_MESSAGE",
       refId: message.id,
-    });
+    }).catch((e) => console.error("Conversation notification failed:", e));
 
     const fullConversation = await db.conversation.findUnique({
       where: { id: conversation.id },

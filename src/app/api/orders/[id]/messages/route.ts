@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { getActorById, errorResponse } from "@/lib/security";
 import { parseBody, orderMessageSchema } from "@/lib/validation";
 import { sanitizeMessage } from "@/lib/sanitize";
+import { sendNotification, buildEmailHtml } from "@/lib/notifications";
 
 // GET /api/orders/[id]/messages
 export async function GET(
@@ -52,7 +53,7 @@ export async function POST(
     }
 
     // Save message — no auto-response, no status change
-    await db.message.create({
+    const savedMessage = await db.message.create({
       data: {
         orderId: id,
         senderId: sender!.id,
@@ -65,6 +66,35 @@ export async function POST(
       where: { id },
       data: { updatedAt: new Date() },
     });
+
+    // 🔔 Notify the OTHER party (buyer if seller sent, seller if buyer sent)
+    // Fire-and-forget so the API responds immediately to the sender
+    const recipient = isBuyer ? order.seller : order.buyer;
+    const senderName = sender!.username;
+    if (recipient && recipient.id !== sender!.id) {
+      // Don't await — send in background for instant response
+      sendNotification({
+        userId: recipient.id,
+        type: "NEW_MESSAGE",
+        subject: `💬 Nouveau message de ${senderName}`,
+        body: buildEmailHtml(
+          "Nouveau message",
+          `<p><strong>${senderName}</strong> t'a envoyé un message sur ta commande :</p>
+           <p style="background:#f8fafc; padding:12px; border-radius:8px; margin:12px 0;">
+             <strong>${order.listing.title}</strong><br>
+             <span style="color:#64748b;">${order.listing.game?.name} · ${order.amount} FCFA</span>
+           </p>
+           <p style="background:#fef3c7; padding:12px; border-radius:8px; border-left:3px solid #f59e0b;">
+             ${content.replace(/\n/g, "<br>")}
+           </p>
+           <p style="margin-top:16px;">Connecte-toi à RobloxBoutik pour répondre à ${senderName}.</p>
+           <p style="margin-top:24px;"><a href="https://robloxboutik.com" style="background:#c026d3;color:white;padding:12px 24px;border-radius:9999px;text-decoration:none;font-weight:bold;">Répondre</a></p>`
+        ),
+        whatsappBody: `💬 RobloxBoutik : ${senderName} t'a écrit au sujet de "${order.listing.title}". Connecte-toi pour répondre.`,
+        refType: "ORDER",
+        refId: order.id,
+      }).catch((e) => console.error("Message notification failed:", e));
+    }
 
     const messages = await db.message.findMany({
       where: { orderId: id },

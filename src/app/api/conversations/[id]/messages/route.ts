@@ -107,13 +107,13 @@ export async function POST(
       data: { updatedAt: new Date() },
     });
 
-    // Notify the OTHER party (not the sender)
+    // Notify the OTHER party (not the sender) — fire-and-forget for instant response
     const recipient = isBuyer ? conversation.seller : conversation.buyer;
     const senderName = sender!.username;
-    await sendNotification({
+    sendNotification({
       userId: recipient.id,
       type: "NEW_MESSAGE",
-      subject: `Nouveau message de ${senderName}`,
+      subject: `💬 Nouveau message de ${senderName}`,
       body: buildEmailHtml(
         "Nouveau message",
         `<p><strong>${senderName}</strong> t'a envoyé un message au sujet de :</p>
@@ -124,12 +124,13 @@ export async function POST(
          <p style="background:#fef3c7; padding:12px; border-radius:8px; border-left:3px solid #f59e0b;">
            ${content.replace(/\n/g, "<br>")}
          </p>
-         <p style="margin-top:16px;">Connecte-toi à Roboutik pour répondre à ${senderName}.</p>`
+         <p style="margin-top:16px;">Connecte-toi à RobloxBoutik pour répondre à ${senderName}.</p>
+         <p style="margin-top:24px;"><a href="https://robloxboutik.com" style="background:#c026d3;color:white;padding:12px 24px;border-radius:9999px;text-decoration:none;font-weight:bold;">Répondre</a></p>`
       ),
-      whatsappBody: `🎮 Roboutik : ${senderName} t'a écrit au sujet de "${conversation.listing.title}". Connecte-toi pour répondre.`,
+      whatsappBody: `🎮 RobloxBoutik : ${senderName} t'a écrit au sujet de "${conversation.listing.title}". Connecte-toi pour répondre.`,
       refType: "CONVERSATION_MESSAGE",
       refId: message.id,
-    });
+    }).catch((e) => console.error("Conversation message notification failed:", e));
 
     const messages = await db.conversationMessage.findMany({
       where: { conversationId: id },
