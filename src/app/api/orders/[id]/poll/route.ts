@@ -122,31 +122,34 @@ export async function GET(
     ]);
 
     // 🔔 Notify the SELLER by email that they have a new paid order
-    try {
-      const { sendNotification, buildEmailHtml } = await import("@/lib/notifications");
-      await sendNotification({
-        userId: order.sellerId,
-        type: "NEW_ORDER",
-        subject: `💰 Nouvelle vente — ${order.listing.title}`,
-        body: buildEmailHtml(
-          "Nouvelle vente 🎉",
-          `<p>Bonjour <strong>${order.seller.username}</strong>,</p>
-           <p>Tu as reçu une nouvelle commande payée sur RobloxBoutik ! 🎉</p>
-           <div style="background:#f0fdf4;border-radius:12px;padding:16px;margin:16px 0;">
-             <p style="margin:0;font-size:16px;"><strong>${order.listing.title}</strong></p>
-             <p style="margin:4px 0 0;color:#475569;">${order.listing.game.name}</p>
-             <p style="margin:8px 0 0;font-size:20px;color:#16a34a;font-weight:800;">${order.amount} FCFA</p>
-           </div>
-           <p>Connecte-toi à RobloxBoutik pour discuter avec l'acheteur et organiser la livraison.</p>
-           <p style="margin-top:24px;"><a href="https://robloxboutik.com" style="background:#c026d3;color:white;padding:12px 24px;border-radius:9999px;text-decoration:none;font-weight:bold;">Voir la commande</a></p>`
-        ),
-        whatsappBody: `💰 Nouvelle vente: ${order.listing.title} (${order.amount} FCFA). Connecte-toi à RobloxBoutik pour la livraison.`,
-        refType: "ORDER",
-        refId: order.id,
-      });
-    } catch (e) {
-      console.error("Seller notification failed (non-blocking):", e);
-    }
+    // Fire-and-forget so the poll response is instant
+    (async () => {
+      try {
+        const { sendNotification, buildEmailHtml } = await import("@/lib/notifications");
+        await sendNotification({
+          userId: order.sellerId,
+          type: "NEW_ORDER",
+          subject: `💰 Nouvelle vente — ${order.listing.title}`,
+          body: buildEmailHtml(
+            "Nouvelle vente 🎉",
+            `<p>Bonjour <strong>${order.seller.username}</strong>,</p>
+             <p>Tu as reçu une nouvelle commande payée sur RobloxBoutik ! 🎉</p>
+             <div style="background:#f0fdf4;border-radius:12px;padding:16px;margin:16px 0;">
+               <p style="margin:0;font-size:16px;"><strong>${order.listing.title}</strong></p>
+               <p style="margin:4px 0 0;color:#475569;">${order.listing.game.name}</p>
+               <p style="margin:8px 0 0;font-size:20px;color:#16a34a;font-weight:800;">${order.amount} FCFA</p>
+             </div>
+             <p>Connecte-toi à RobloxBoutik pour discuter avec l'acheteur et organiser la livraison.</p>
+             <p style="margin-top:24px;"><a href="https://robloxboutik.com" style="background:#c026d3;color:white;padding:12px 24px;border-radius:9999px;text-decoration:none;font-weight:bold;">Voir la commande</a></p>`
+          ),
+          whatsappBody: `💰 Nouvelle vente: ${order.listing.title} (${order.amount} FCFA). Connecte-toi à RobloxBoutik pour la livraison.`,
+          refType: "ORDER",
+          refId: order.id,
+        });
+      } catch (e) {
+        console.error("Seller notification failed (non-blocking):", e);
+      }
+    })();
 
     return NextResponse.json({
       status: "PAID",
