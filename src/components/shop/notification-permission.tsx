@@ -2,7 +2,7 @@
 
 import { Button } from "@/components/ui/button";
 import { Bell, X } from "lucide-react";
-import { useSyncExternalStore, useState, useCallback } from "react";
+import { useSyncExternalStore, useState, useCallback, useEffect } from "react";
 import { useAppStore } from "@/lib/store";
 
 const STORAGE_KEY = "rb_notif_prompted";
@@ -26,15 +26,15 @@ export function NotificationPermission() {
   const [showBanner, setShowBanner] = useState(false);
   const permission = useSyncExternalStore(subscribe, getPermissionSnapshot, getServerSnapshot);
 
-  useState(() => {
-    if (typeof window === "undefined") return 0;
-    if (!me) return 0;
-    if (permission !== "default") return 0;
+  // Show the banner 1.5s after the user logs in (if permission is still "default")
+  useEffect(() => {
+    if (!me) return;
+    if (permission !== "default") return;
     const alreadyPrompted = localStorage.getItem(STORAGE_KEY);
-    if (alreadyPrompted) return 0;
-    setTimeout(() => setShowBanner(true), 1500);
-    return 0;
-  });
+    if (alreadyPrompted) return;
+    const t = setTimeout(() => setShowBanner(true), 1500);
+    return () => clearTimeout(t);
+  }, [me, permission]);
 
   const requestPermission = useCallback(async () => {
     if (typeof window === "undefined" || !("Notification" in window)) return;
@@ -43,10 +43,25 @@ export function NotificationPermission() {
     setShowBanner(false);
     window.dispatchEvent(new Event("storage"));
     if (result === "granted") {
-      new Notification("RobloxBoutik 🎮", {
-        body: "Notifications activées ! Tu seras prévenu·e quand tu reçois un message ou une commande.",
-        icon: "/logo-roboutik.png",
-      });
+      try {
+        // Prefer service worker registration so notifications work in background
+        if ("serviceWorker" in navigator) {
+          const reg = await navigator.serviceWorker.ready;
+          reg.showNotification("RobloxBoutik 🎮", {
+            body: "Notifications activées ! Tu seras prévenu·e quand tu reçois un message ou une commande.",
+            icon: "/logo-roboutik.png",
+            badge: "/favicon-192.png",
+            tag: "robloxboutik-welcome",
+          });
+        } else {
+          new Notification("RobloxBoutik 🎮", {
+            body: "Notifications activées ! Tu seras prévenu·e quand tu reçois un message ou une commande.",
+            icon: "/logo-roboutik.png",
+          });
+        }
+      } catch {
+        /* noop */
+      }
     }
   }, []);
 
