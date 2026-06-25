@@ -32,7 +32,7 @@ export function NotificationPermission() {
     if (permission !== "default") return 0;
     const alreadyPrompted = localStorage.getItem(STORAGE_KEY);
     if (alreadyPrompted) return 0;
-    setTimeout(() => setShowBanner(true), 3000);
+    setTimeout(() => setShowBanner(true), 1500);
     return 0;
   });
 
@@ -43,8 +43,8 @@ export function NotificationPermission() {
     setShowBanner(false);
     window.dispatchEvent(new Event("storage"));
     if (result === "granted") {
-      new Notification("Roboutik 🎮", {
-        body: "Notifications activées ! Tu seras prévenu quand tu reçois un message.",
+      new Notification("RobloxBoutik 🎮", {
+        body: "Notifications activées ! Tu seras prévenu·e quand tu reçois un message ou une commande.",
         icon: "/logo-roboutik.png",
       });
     }
@@ -91,7 +91,24 @@ export function notifyNewMessage(title: string, body: string) {
   if (!("Notification" in window)) return;
   if (Notification.permission !== "granted") return;
   try {
-    new Notification(title, { body, icon: "/logo-roboutik.png", tag: "roboutik-message" });
+    // Prefer service worker registration so notifications work even when
+    // the tab is in the background (and persist on Android via PWA).
+    if ("serviceWorker" in navigator && navigator.serviceWorker.controller) {
+      navigator.serviceWorker.ready.then((reg) => {
+        reg.showNotification(title, {
+          body,
+          icon: "/logo-roboutik.png",
+          badge: "/favicon-192.png",
+          tag: "robloxboutik-message",
+          renotify: true,
+        });
+      }).catch(() => {
+        // Fallback: direct Notification API
+        new Notification(title, { body, icon: "/logo-roboutik.png" });
+      });
+    } else {
+      new Notification(title, { body, icon: "/logo-roboutik.png" });
+    }
   } catch {
     /* noop */
   }

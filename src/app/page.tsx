@@ -22,6 +22,7 @@ import { ProfileModal } from "@/components/shop/profile-modal";
 import { CookieBanner } from "@/components/shop/cookie-banner";
 import { AgeGate } from "@/components/shop/age-gate";
 import { NotificationPermission } from "@/components/shop/notification-permission";
+import { useMessageNotifications } from "@/lib/use-message-notifications";
 import { Loader2 } from "lucide-react";
 
 export default function Home() {
@@ -29,6 +30,9 @@ export default function Home() {
   const { user: authUser, loading: authLoading } = useAuth();
   const [booting, setBooting] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // 🔔 Poll all conversations + orders every 8s and fire native notifications
+  useMessageNotifications();
 
   // Load games on mount (no init call in production — games are already seeded)
   useEffect(() => {

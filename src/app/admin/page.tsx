@@ -8,12 +8,16 @@ import { Button } from "@/components/ui/button";
 import { useEffect } from "react";
 import { useAuth } from "@/lib/auth";
 import { useAppStore } from "@/lib/store";
+import { useMessageNotifications } from "@/lib/use-message-notifications";
 
 export default function AdminPage() {
   const { data: session, status } = useSession();
   const { user: authUser, loading: authLoading } = useAuth();
   const setMe = useAppStore((s) => s.setMe);
   const me = useAppStore((s) => s.me);
+
+  // 🔔 Poll all conversations + orders every 8s and fire native notifications
+  useMessageNotifications();
 
   // Hydrate the Zustand store with the full user (AdminView reads from store)
   useEffect(() => {

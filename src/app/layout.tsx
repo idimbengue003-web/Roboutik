@@ -4,6 +4,7 @@ import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
 import { AuthProvider } from "@/lib/auth";
 import { ClientErrorTracker } from "@/components/shop/client-error-tracker";
+import { ServiceWorkerRegister } from "@/components/shop/sw-register";
 import { db } from "@/lib/db";
 
 const geistSans = Geist({
@@ -104,11 +105,15 @@ export default async function RootLayout({
 
   return (
     <html lang="fr" suppressHydrationWarning>
+      <head>
+        <link rel="manifest" href="/manifest.json" />
+      </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground`}
         style={themeStyle}
       >
         <AuthProvider>
+          <ServiceWorkerRegister />
           {children}
           <Toaster />
           <ClientErrorTracker />
