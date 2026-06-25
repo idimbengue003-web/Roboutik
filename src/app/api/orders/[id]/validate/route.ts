@@ -50,6 +50,32 @@ export async function POST(
       }),
     ]);
 
+    // 🔔 Notify the SELLER that their balance has been credited
+    try {
+      const { sendNotification, buildEmailHtml } = await import("@/lib/notifications");
+      await sendNotification({
+        userId: order.sellerId,
+        type: "ORDER_VALIDATED",
+        subject: `✅ Vente validée — ${netAmount} FCFA crédités`,
+        body: buildEmailHtml(
+          "Vente validée ✅",
+          `<p>Bonjour <strong>${order.seller.username}</strong>,</p>
+           <p>Ta vente a été validée par l'acheteur. Ton solde a été crédité :</p>
+           <div style="background:#f0fdf4;border-radius:12px;padding:16px;margin:16px 0;">
+             <p style="margin:0;font-size:16px;"><strong>${order.listing.title}</strong></p>
+             <p style="margin:8px 0 0;font-size:20px;color:#16a34a;font-weight:800;">+${netAmount} FCFA</p>
+           </div>
+           <p>Tu peux maintenant retirer ton solde vers Wave depuis ton espace vendeur.</p>
+           <p style="margin-top:24px;"><a href="https://robloxboutik.com" style="background:#c026d3;color:white;padding:12px 24px;border-radius:9999px;text-decoration:none;font-weight:bold;">Voir mon solde</a></p>`
+        ),
+        whatsappBody: `✅ Vente validée: +${netAmount} FCFA crédités sur ton solde RobloxBoutik. Tu peux retirer vers Wave.`,
+        refType: "ORDER",
+        refId: order.id,
+      });
+    } catch (e) {
+      console.error("Seller notification (validated) failed:", e);
+    }
+
     const updated = await db.order.findUnique({
       where: { id },
       include: {

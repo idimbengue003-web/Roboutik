@@ -73,8 +73,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Compute buyer price = seller input (what seller wants to charge buyer)
-    // Commission: 16% kept by platform, seller receives 84% of buyer price
+    // Seller enters the displayed price (what buyer pays).
+    // We apply 16% commission: seller receives 84% of the displayed price.
     const buyerPrice = sellerNetPrice; // displayed price = what buyer pays
     const sellerNet = Math.round(sellerNetPrice * 0.84); // seller receives 84%
     const commission = buyerPrice - sellerNet;
@@ -118,7 +118,7 @@ export async function POST(req: NextRequest) {
         gameId,
         title,
         description,
-        sellerNetPrice: sellerNet, // 80% of buyer price (commission = 20%)
+        sellerNetPrice: sellerNet, // 84% of displayed price (16% commission)
         price: buyerPrice,
         images: imagesJson,
         stock,
