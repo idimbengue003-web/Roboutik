@@ -73,10 +73,10 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Seller enters the displayed price (what buyer pays).
-    // We apply 16% commission: seller receives 84% of the displayed price.
-    const buyerPrice = sellerNetPrice; // displayed price = what buyer pays
-    const sellerNet = Math.round(sellerNetPrice * 0.84); // seller receives 84%
+    // Seller enters the amount they want to RECEIVE.
+    // We add 16% on top for the buyer (displayed price = net × 1.16).
+    const sellerNet = sellerNetPrice; // what seller receives
+    const buyerPrice = Math.round(sellerNetPrice * 1.16); // displayed price (+16%)
     const commission = buyerPrice - sellerNet;
 
     // Extract stock (default 1, min 0, max 9999)
@@ -118,8 +118,8 @@ export async function POST(req: NextRequest) {
         gameId,
         title,
         description,
-        sellerNetPrice: sellerNet, // 84% of displayed price (16% commission)
-        price: buyerPrice,
+        sellerNetPrice: sellerNet, // what seller receives (= their input)
+        price: buyerPrice, // displayed price (+16%)
         images: imagesJson,
         stock,
         active: true,

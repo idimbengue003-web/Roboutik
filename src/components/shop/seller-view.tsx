@@ -29,6 +29,7 @@ import {
   X,
   Percent,
   Pencil,
+  Loader2,
 } from "lucide-react";
 import { useEffect, useState, useCallback } from "react";
 import type { Listing, Order, User, Withdrawal, Game } from "@/lib/types";
@@ -811,8 +812,9 @@ function CreateListingDialog({
     setImages([]);
   }
 
-  // Single price field = what buyer pays. Seller net is computed server-side.
-  const buyerPrice = Number(sellerNetPrice) || 0;
+  // Seller enters the amount they want to RECEIVE. We add 16% on top for the buyer.
+  const sellerNet = Number(sellerNetPrice) || 0;
+  const buyerPrice = Math.round(sellerNet * 1.16); // displayed to buyer
 
   async function submit() {
     if (!me) return;
@@ -824,6 +826,8 @@ function CreateListingDialog({
       return;
     }
     setSaving(true);
+    // Small artificial delay to show the "+16% calculation" feedback
+    await new Promise((r) => setTimeout(r, 600));
     try {
       const r = await fetch("/api/seller/listings", {
         method: "POST",
@@ -915,32 +919,54 @@ function CreateListingDialog({
               maxLength={500}
             />
           </div>
-          {/* SINGLE PRICE FIELD — what the buyer pays. Seller net is private. */}
-          <div>
-            <Label className="text-sm font-semibold">Prix (FCFA)</Label>
-            <div className="relative mt-1">
-              <Input
-                type="number"
-                inputMode="numeric"
-                value={sellerNetPrice}
-                onChange={(e) => setSellerNetPrice(e.target.value)}
-                placeholder="Ex : 2000"
-                className="rounded-xl pr-16 text-lg font-bold h-12"
-                min={100}
-                max={1_000_000}
-              />
-              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">
-                FCFA
-              </span>
+          {/* PRICE FIELD — what the seller wants to receive. We add 16% on top for the buyer. */}
+          <div className="rounded-2xl bg-slate-50 p-3 space-y-3 border border-slate-200">
+            <div>
+              <Label className="text-sm font-semibold flex items-center gap-1.5">
+                💰 Ton prix (ce que tu reçois)
+                <span className="text-[10px] font-medium text-emerald-600 bg-emerald-100 rounded-full px-2 py-0.5">
+                  net vendeur
+                </span>
+              </Label>
+              <div className="relative mt-1">
+                <Input
+                  type="number"
+                  inputMode="numeric"
+                  value={sellerNetPrice}
+                  onChange={(e) => setSellerNetPrice(e.target.value)}
+                  placeholder="Ex : 1000"
+                  className="rounded-xl pr-16 text-lg font-bold h-12"
+                  min={100}
+                  max={1_000_000}
+                />
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">
+                  FCFA
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-500 mt-1">
+                Entre 100 et 1 000 000 FCFA.
+              </p>
             </div>
-            <p className="text-[11px] text-slate-500 mt-1">
-              Prix affiché aux acheteurs. Entre 100 et 1 000 000 FCFA.
-            </p>
+
+            {/* Auto-computed buyer price (+16%) */}
+            <div className="rounded-xl bg-gradient-to-br from-fuchsia-50 to-orange-50 border border-fuchsia-200 p-3">
+              <Label className="text-[11px] font-bold uppercase tracking-wide text-fuchsia-700">
+                🛒 Prix affiché aux acheteurs
+              </Label>
+              <div className="mt-1 flex items-baseline gap-2">
+                <span className="text-2xl font-extrabold text-fuchsia-700 tabular-nums">
+                  {buyerPrice > 0 ? formatFCFA(buyerPrice) : "—"}
+                </span>
+              </div>
+              <p className="text-[10px] text-slate-400 mt-1">
+                Tu reçois <strong>{sellerNet > 0 ? formatFCFA(sellerNet) : "—"}</strong> à la validation.
+              </p>
+            </div>
           </div>
         </div>
 
         <DialogFooter className="gap-2">
-          <Button variant="ghost" onClick={onClose}>
+          <Button variant="ghost" onClick={onClose} disabled={saving}>
             Annuler
           </Button>
           <Button
@@ -948,7 +974,14 @@ function CreateListingDialog({
             onClick={submit}
             className="bg-gradient-to-r from-fuchsia-600 to-orange-500 text-white font-bold rounded-full"
           >
-            {saving ? "Publication…" : "Publier"}
+            {saving ? (
+              <>
+                <Loader2 className="size-4 animate-spin" />
+                Calcul +16%…
+              </>
+            ) : (
+              "Publier"
+            )}
           </Button>
         </DialogFooter>
       </DialogContent>

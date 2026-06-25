@@ -73,8 +73,8 @@ export async function POST(req: NextRequest) {
         gameId: GAME_ID,
         title,
         description,
-        sellerNetPrice: Math.round(price * 0.84), // 84% of buyer price (16% commission)
-        price: price,
+        sellerNetPrice: price, // what seller receives (= input price)
+        price: Math.round(price * 1.16), // displayed price (+16%)
         stock: 1,
         active: true,
       },

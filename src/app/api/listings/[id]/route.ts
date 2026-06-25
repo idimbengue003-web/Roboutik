@@ -90,10 +90,10 @@ export async function PATCH(
           { status: 400 }
         );
       }
-      // sellerNetPrice here = what the seller wants the buyer to pay (displayed price)
-      // Seller actually receives 84% (16% commission kept by platform)
-      update.price = net; // displayed price = buyer price
-      update.sellerNetPrice = Math.round(net * 0.84); // seller receives 84%
+      // sellerNetPrice = what seller wants to receive (their input)
+      // Displayed price = sellerNetPrice × 1.16 (+16% commission on top)
+      update.sellerNetPrice = net; // seller receives this
+      update.price = Math.round(net * 1.16); // buyer pays this (+16%)
     }
 
     if (typeof stock === "number" && Number.isFinite(stock)) {

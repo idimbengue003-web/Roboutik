@@ -166,8 +166,8 @@ export async function POST(req: NextRequest) {
         gameId: GAME_ID,
         title,
         description,
-        sellerNetPrice: Math.round(fcfaPrice * 0.84), // 84% of buyer price (16% commission)
-        price: fcfaPrice,
+        sellerNetPrice: fcfaPrice, // what seller receives (= input price)
+        price: Math.round(fcfaPrice * 1.16), // displayed price (+16%)
         stock: 1,
         active: true,
       },
