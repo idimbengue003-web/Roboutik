@@ -172,7 +172,7 @@ export function SellerView() {
         />
       </div>
 
-      {/* Withdraw button */}
+      {/* Account balance + Withdraw button */}
       {data.balance > 0 && (
         <div className="rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 p-5 text-white flex items-center justify-between gap-3">
           <div className="flex items-center gap-3">
@@ -181,7 +181,7 @@ export function SellerView() {
             </div>
             <div>
               <p className="text-xs opacity-90 uppercase tracking-wide font-semibold">
-                Solde Wave
+                Solde du compte
               </p>
               <p className="text-2xl font-extrabold">{formatFCFA(data.balance)}</p>
             </div>
@@ -191,7 +191,7 @@ export function SellerView() {
             className="bg-white text-emerald-700 hover:bg-white/90 font-bold rounded-full h-11 px-5"
           >
             <ArrowDownToLine className="size-4" />
-            Retirer vers Wave
+            Retirer
           </Button>
         </div>
       )}
@@ -1004,11 +1004,13 @@ function WithdrawDialog({
   const { toast } = useToast();
   const [amount, setAmount] = useState("");
   const [waveNumber, setWaveNumber] = useState("");
+  const [waveNumberConfirm, setWaveNumberConfirm] = useState("");
   const [saving, setSaving] = useState(false);
 
   function reset() {
     setAmount("");
     setWaveNumber("");
+    setWaveNumberConfirm("");
   }
 
   async function submit() {
@@ -1031,6 +1033,25 @@ function WithdrawDialog({
     if (!waveNumber.trim()) {
       toast({
         title: "Numéro Wave requis",
+        variant: "destructive",
+      });
+      return;
+    }
+    // Security: the user must type the same Wave number twice
+    const cleanA = waveNumber.trim().replace(/\s+/g, "");
+    const cleanB = waveNumberConfirm.trim().replace(/\s+/g, "");
+    if (!cleanB) {
+      toast({
+        title: "Confirme ton numéro Wave",
+        description: "Saisis ton numéro une 2e fois pour éviter toute erreur.",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (cleanA !== cleanB) {
+      toast({
+        title: "Les numéros ne correspondent pas",
+        description: "Vérifie que tu as saisi le même numéro Wave deux fois.",
         variant: "destructive",
       });
       return;
@@ -1111,7 +1132,9 @@ function WithdrawDialog({
             </div>
           </div>
           <div>
-            <Label className="text-sm font-semibold">Numéro Wave</Label>
+            <Label className="text-sm font-semibold">
+              Numéro Wave <span className="text-rose-500">*</span>
+            </Label>
             <Input
               inputMode="tel"
               value={waveNumber}
@@ -1119,6 +1142,36 @@ function WithdrawDialog({
               placeholder="Ex : 76 123 45 67"
               className="mt-1 rounded-xl h-11"
             />
+          </div>
+          <div>
+            <Label className="text-sm font-semibold flex items-center gap-1.5">
+              Confirme ton numéro Wave
+              <span className="text-rose-500">*</span>
+              <span className="text-[10px] font-medium text-slate-400 normal-case">
+                (sécurité)
+              </span>
+            </Label>
+            <Input
+              inputMode="tel"
+              value={waveNumberConfirm}
+              onChange={(e) => setWaveNumberConfirm(e.target.value)}
+              placeholder="Saisis le même numéro"
+              className="mt-1 rounded-xl h-11"
+            />
+            {waveNumberConfirm &&
+              waveNumber.trim().replace(/\s+/g, "") !==
+                waveNumberConfirm.trim().replace(/\s+/g, "") && (
+                <p className="text-[11px] text-rose-600 mt-1 flex items-center gap-1">
+                  ⚠️ Les deux numéros ne correspondent pas
+                </p>
+              )}
+            {waveNumberConfirm &&
+              waveNumber.trim().replace(/\s+/g, "") ===
+                waveNumberConfirm.trim().replace(/\s+/g, "") && (
+                <p className="text-[11px] text-emerald-600 mt-1 flex items-center gap-1">
+                  ✓ Numéros identiques
+                </p>
+              )}
           </div>
         </div>
 
