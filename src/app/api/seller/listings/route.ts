@@ -50,27 +50,30 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // ANTI-FRAUD: limit listings per seller (prevent spam)
-    const listingCount = await db.listing.count({
-      where: { sellerId: userId },
-    });
-    if (listingCount >= 50) {
-      return NextResponse.json(
-        { error: "Tu as atteint la limite de 50 annonces. Supprime-en pour en créer de nouvelles." },
-        { status: 429 }
-      );
-    }
+    // ANTI-FRAUD: limit listings per seller (prevent spam).
+    // Admins bypass this limit entirely (can create unlimited listings).
+    if (!user.isAdmin) {
+      const listingCount = await db.listing.count({
+        where: { sellerId: userId },
+      });
+      if (listingCount >= 50) {
+        return NextResponse.json(
+          { error: "Tu as atteint la limite de 50 annonces. Supprime-en pour en créer de nouvelles." },
+          { status: 429 }
+        );
+      }
 
-    // ANTI-SPAM: limit new listings per seller to 10 per rolling 24h window.
-    const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
-    const recentListingCount = await db.listing.count({
-      where: { sellerId: userId, createdAt: { gt: oneDayAgo } },
-    });
-    if (recentListingCount >= 50) {
-      return NextResponse.json(
-        { error: "Tu as créé 10 annonces aujourd'hui. Reviens demain." },
-        { status: 429 }
-      );
+      // ANTI-SPAM: limit new listings per seller to 50 per rolling 24h window.
+      const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+      const recentListingCount = await db.listing.count({
+        where: { sellerId: userId, createdAt: { gt: oneDayAgo } },
+      });
+      if (recentListingCount >= 50) {
+        return NextResponse.json(
+          { error: "Tu as créé 50 annonces aujourd'hui. Reviens demain." },
+          { status: 429 }
+        );
+      }
     }
 
     // Seller enters the amount they want to RECEIVE.
