@@ -249,6 +249,125 @@ function OverviewTab({ stats }: { stats: AdminStats | null }) {
           <OrderRow label="Validées" count={stats.orders.validated} color="bg-emerald-400" />
         </div>
       </div>
+
+      {/* DB usage card */}
+      <DbUsageCard />
+    </div>
+  );
+}
+
+function DbUsageCard() {
+  const [usage, setUsage] = useState<any | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const r = await fetch(`/api/admin/db-usage?adminId=cmqqyxk010000jo04ci1x7aku`);
+        if (!r.ok) return;
+        const d = await r.json();
+        if (!cancelled) setUsage(d);
+      } catch {
+        /* noop */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  if (!usage) {
+    return (
+      <div className="rounded-2xl border bg-white p-4">
+        <p className="text-sm text-slate-500">Chargement de l'espace DB…</p>
+      </div>
+    );
+  }
+
+  const pct = usage.percentUsed;
+  const barColor =
+    pct > 90 ? "bg-rose-500" : pct > 70 ? "bg-amber-500" : "bg-emerald-500";
+  const statusText =
+    pct > 90
+      ? "⚠️ Quasi saturé — migre vers Cloudinary ou passe Neon payant"
+      : pct > 70
+      ? "Attention — surveille la consommation"
+      : "Espace suffisant";
+
+  return (
+    <div className="rounded-2xl border bg-white p-4">
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="font-bold text-slate-900 flex items-center gap-1.5">
+          <Package className="size-4 text-fuchsia-600" />
+          Espace base de données
+        </h3>
+        <span className="text-xs text-slate-500">
+          Neon free: 500 MB
+        </span>
+      </div>
+
+      {/* Big number */}
+      <div className="flex items-baseline gap-2 mb-2">
+        <span className="text-3xl font-extrabold text-slate-900">
+          {usage.totalMB} MB
+        </span>
+        <span className="text-sm text-slate-500">
+          / 500 MB ({pct}%)
+        </span>
+      </div>
+
+      {/* Progress bar */}
+      <div className="w-full h-3 rounded-full bg-slate-100 overflow-hidden mb-3">
+        <div
+          className={`h-full ${barColor} transition-all`}
+          style={{ width: `${Math.min(100, pct)}%` }}
+        />
+      </div>
+
+      <p className="text-xs text-slate-600 mb-3">{statusText}</p>
+
+      {/* Breakdown */}
+      <div className="grid grid-cols-2 gap-3 text-xs">
+        <div className="rounded-lg bg-slate-50 p-2">
+          <p className="text-slate-500">Annonces total</p>
+          <p className="font-bold text-slate-900">{usage.listings.total}</p>
+        </div>
+        <div className="rounded-lg bg-slate-50 p-2">
+          <p className="text-slate-500">Avec photo</p>
+          <p className="font-bold text-slate-900">{usage.listings.withImages}</p>
+          <p className="text-[10px] text-slate-400">
+            ({usage.listings.imageMB} MB)
+          </p>
+        </div>
+        <div className="rounded-lg bg-emerald-50 p-2 col-span-2">
+          <p className="text-emerald-700">Annonces avec photo encore possibles</p>
+          <p className="font-bold text-emerald-900 text-lg">
+            ~{usage.remainingListingsWithImages.toLocaleString("fr-FR")}
+          </p>
+        </div>
+      </div>
+
+      {/* Top tables */}
+      {usage.tables && usage.tables.length > 0 && (
+        <details className="mt-3">
+          <summary className="text-xs text-slate-500 cursor-pointer hover:text-slate-700">
+            Détail par table ({usage.tables.length} tables)
+          </summary>
+          <div className="mt-2 space-y-1 max-h-40 overflow-y-auto">
+            {usage.tables.slice(0, 10).map((t: any) => (
+              <div
+                key={t.table}
+                className="flex items-center justify-between text-[11px] py-0.5"
+              >
+                <span className="text-slate-600">{t.table}</span>
+                <span className="font-mono text-slate-500">
+                  {t.sizeMB} MB
+                </span>
+              </div>
+            ))}
+          </div>
+        </details>
+      )}
     </div>
   );
 }

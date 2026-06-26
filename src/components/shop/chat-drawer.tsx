@@ -189,11 +189,6 @@ export function ChatDrawer() {
   const canCancel =
     isSeller && (status === "PAID" || status === "DELIVERED");
 
-  const autoMs =
-    order?.autoValidateAt && (status === "PAID" || status === "DELIVERED")
-      ? new Date(order.autoValidateAt).getTime() - now
-      : null;
-
   return (
     <Sheet
       open={open}
@@ -367,19 +362,6 @@ export function ChatDrawer() {
             <p className="text-xs text-slate-700">
               ❌ Commande annulée. {isSeller ? "L'acheteur a été notifié." : "Le vendeur a annulé cette commande."}
             </p>
-          </div>
-        )}
-
-        {/* Auto-validation countdown banner */}
-        {autoMs !== null && autoMs > 0 && (
-          <div className="bg-slate-900 text-white px-4 py-2.5 flex items-center justify-between gap-3 text-xs">
-            <div className="flex items-center gap-2">
-              <Clock className="size-4 text-amber-300" />
-              <span>Validation automatique dans</span>
-            </div>
-            <span className="font-bold tabular-nums text-amber-300">
-              {formatCountdown(autoMs)}
-            </span>
           </div>
         )}
 

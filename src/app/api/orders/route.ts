@@ -25,52 +25,9 @@ export async function GET(req: NextRequest) {
       orderBy: { createdAt: "desc" },
     });
 
-    // Auto-validate any orders past their autoValidateAt that are PAID or DELIVERED
-    const now = new Date();
-    for (const o of orders) {
-      if (
-        o.autoValidateAt &&
-        o.autoValidateAt < now &&
-        (o.status === "PAID" || o.status === "DELIVERED")
-      ) {
-        const netAmount = o.sellerNetAmount;
-        await db.$transaction([
-          db.order.update({
-            where: { id: o.id },
-            data: { status: "VALIDATED", validatedAt: now },
-          }),
-          db.user.update({
-            where: { id: o.sellerId },
-            data: { balance: { increment: netAmount } },
-          }),
-          db.message.create({
-            data: {
-              orderId: o.id,
-              senderId: o.sellerId,
-              content: `🛡️ ROBLOX BOUTIK — Validation automatique. Le vendeur a reçu ${netAmount} FCFA sur son solde. Merci pour votre achat !`,
-              isAuto: true,
-            },
-          }),
-        ]);
-      }
-    }
-
-    // Refetch after potential auto-validations
-    const finalOrders = await db.order.findMany({
-      where: {
-        OR: [{ buyerId: userId }, { sellerId: userId }],
-      },
-      include: {
-        listing: { include: { game: true, ratings: true } },
-        seller: true,
-        buyer: true,
-        messages: { orderBy: { createdAt: "asc" } },
-        rating: true,
-      },
-      orderBy: { createdAt: "desc" },
-    });
-
-    return NextResponse.json({ orders: finalOrders });
+    // No auto-validation anymore — buyer must manually validate to release payment.
+    // This prevents scams where sellers deliver nothing and wait for the 24h auto-validation.
+    return NextResponse.json({ orders });
   }
 
   if (!buyerId && !sellerId) {
@@ -91,51 +48,9 @@ export async function GET(req: NextRequest) {
     orderBy: { createdAt: "desc" },
   });
 
-  // Auto-validate any orders past their autoValidateAt that are PAID or DELIVERED
-  const now = new Date();
-  for (const o of orders) {
-    if (
-      o.autoValidateAt &&
-      o.autoValidateAt < now &&
-      (o.status === "PAID" || o.status === "DELIVERED")
-    ) {
-      // Credit seller with their NET amount. Commission is kept by the platform.
-      const netAmount = o.sellerNetAmount;
-      await db.$transaction([
-        db.order.update({
-          where: { id: o.id },
-          data: { status: "VALIDATED", validatedAt: now },
-        }),
-        db.user.update({
-          where: { id: o.sellerId },
-          data: { balance: { increment: netAmount } },
-        }),
-        db.message.create({
-          data: {
-            orderId: o.id,
-            senderId: o.sellerId,
-            content: `🛡️ ROBLOX BOUTIK — Validation automatique. Le vendeur a reçu ${netAmount} FCFA sur son solde. Merci pour votre achat !`,
-            isAuto: true,
-          },
-        }),
-      ]);
-    }
-  }
-
-  // Refetch after potential auto-validations
-  const finalOrders = await db.order.findMany({
-    where,
-    include: {
-      listing: { include: { game: true, ratings: true } },
-      seller: true,
-      buyer: true,
-      messages: { orderBy: { createdAt: "asc" } },
-      rating: true,
-    },
-    orderBy: { createdAt: "desc" },
-  });
-
-  return NextResponse.json({ orders: finalOrders });
+  // No auto-validation anymore — buyer must manually validate to release payment.
+  // This prevents scams where sellers deliver nothing and wait for the 24h auto-validation.
+  return NextResponse.json({ orders });
 }
 
 // POST /api/orders  - create a new order from a listing

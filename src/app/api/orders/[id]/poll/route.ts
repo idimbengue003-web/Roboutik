@@ -101,6 +101,7 @@ export async function GET(
     }
 
     // 🎉 Payment found! Mark as PAID + send seller auto-welcome message
+    // No autoValidateAt anymore — buyer must manually validate (anti-scam)
     const now = new Date();
     await db.$transaction([
       db.order.update({
@@ -108,7 +109,6 @@ export async function GET(
         data: {
           status: "PAID",
           paidAt: now,
-          autoValidateAt: new Date(now.getTime() + 24 * 60 * 60 * 1000),
         },
       }),
       db.message.create({
