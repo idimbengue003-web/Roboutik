@@ -19,6 +19,7 @@ import {
   ShieldCheck,
   Star,
   Flag,
+  X,
 } from "lucide-react";
 import { useEffect, useRef, useState, useCallback } from "react";
 import type { Order, Message } from "@/lib/types";
