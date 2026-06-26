@@ -11,6 +11,16 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import {
   Send,
   Loader2,
   CheckCircle2,
@@ -34,6 +44,9 @@ export function ChatDrawer() {
   const [sending, setSending] = useState(false);
   const [validating, setValidating] = useState(false);
   const [now, setNow] = useState(Date.now());
+  const [showValidateConfirm, setShowValidateConfirm] = useState(false);
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+  const [cancelReason, setCancelReason] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
 
@@ -107,13 +120,6 @@ export function ChatDrawer() {
 
   async function handleValidate() {
     if (!activeOrderId || !order) return;
-    // Confirmation required before validating
-    const ok = window.confirm(
-      `Valider cette commande ?\n\nLe vendeur recevra ${formatFCFA(
-        order.sellerNetAmount ?? order.amount
-      )} sur son solde et la commande sera terminée.`
-    );
-    if (!ok) return;
     setValidating(true);
     try {
       const r = await fetch(`/api/orders/${activeOrderId}/validate`, {
@@ -139,22 +145,18 @@ export function ChatDrawer() {
       });
     } finally {
       setValidating(false);
+      setShowValidateConfirm(false);
     }
   }
 
   async function handleCancel() {
     if (!activeOrderId || !me || !order) return;
-    const reason = window.prompt(
-      `Annuler cette commande ?\n\nIndique un motif (visible par l'acheteur) :`,
-      "Stock épuisé"
-    );
-    if (reason === null) return; // user clicked Cancel
     setValidating(true);
     try {
       const r = await fetch(`/api/orders/${activeOrderId}/cancel`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId: me.id, reason: reason.trim() }),
+        body: JSON.stringify({ userId: me.id, reason: cancelReason.trim() || "Annulation par le vendeur" }),
       });
       if (!r.ok) {
         const d = await r.json().catch(() => ({}));
@@ -176,6 +178,8 @@ export function ChatDrawer() {
       });
     } finally {
       setValidating(false);
+      setShowCancelConfirm(false);
+      setCancelReason("");
     }
   }
 
@@ -256,7 +260,7 @@ export function ChatDrawer() {
             </p>
             <Button
               size="sm"
-              onClick={handleValidate}
+              onClick={() => setShowValidateConfirm(true)}
               disabled={validating}
               className="w-full h-9 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold"
             >
@@ -301,7 +305,7 @@ export function ChatDrawer() {
               <Button
                 size="sm"
                 variant="outline"
-                onClick={handleCancel}
+                onClick={() => setShowCancelConfirm(true)}
                 disabled={validating}
                 className="w-full h-9 rounded-full text-rose-600 border-rose-300 hover:bg-rose-50 font-semibold"
               >
@@ -478,6 +482,137 @@ export function ChatDrawer() {
           </Button>
         </div>
       </SheetContent>
+
+      {/* Validate confirmation modal */}
+      <Dialog open={showValidateConfirm} onOpenChange={(o) => !o && setShowValidateConfirm(false)}>
+        <DialogContent className="sm:max-w-md rounded-3xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CheckCircle2 className="size-5 text-emerald-600" />
+              Valider la commande ?
+            </DialogTitle>
+            <DialogDescription>
+              Confirmation importante — cette action est définitive.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="rounded-xl bg-amber-50 border border-amber-200 p-3 text-xs text-amber-900">
+              <p className="font-bold mb-1">⚠️ Avant de valider :</p>
+              <ul className="space-y-1 list-disc list-inside">
+                <li>Vérifie que tu as bien reçu l'item Roblox dans le jeu</li>
+                <li>Confirme que tout correspond à l'annonce (titre, description)</li>
+                <li>Une fois validé, le vendeur reçoit son paiement et la commande ne peut plus être annulée</li>
+              </ul>
+            </div>
+            <div className="rounded-xl bg-slate-50 p-3 text-sm">
+              <p className="text-slate-600">Commande :</p>
+              <p className="font-bold text-slate-900">{order?.listing?.title}</p>
+              <p className="text-xs text-slate-500 mt-1">
+                Vendeur : <strong>{order?.seller?.username}</strong> · Montant :{" "}
+                <strong>{formatFCFA(order?.amount ?? 0)}</strong>
+              </p>
+            </div>
+            <p className="text-xs text-slate-600">
+              Es-tu sûr d'avoir bien reçu la commande comme indiqué par le vendeur ?
+            </p>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button
+              variant="ghost"
+              onClick={() => setShowValidateConfirm(false)}
+              disabled={validating}
+              className="rounded-full"
+            >
+              Pas encore
+            </Button>
+            <Button
+              onClick={handleValidate}
+              disabled={validating}
+              className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-full"
+            >
+              {validating ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                <CheckCircle2 className="size-4" />
+              )}
+              Oui, je confirme
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Cancel confirmation modal (seller only) */}
+      <Dialog open={showCancelConfirm} onOpenChange={(o) => !o && setShowCancelConfirm(false)}>
+        <DialogContent className="sm:max-w-md rounded-3xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <X className="size-5 text-rose-600" />
+              Annuler la commande ?
+            </DialogTitle>
+            <DialogDescription>
+              L'acheteur sera notifié et un remboursement Wave sera traité sous 24-48h.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="rounded-xl bg-rose-50 border border-rose-200 p-3 text-xs text-rose-900">
+              <p className="font-bold mb-1">⚠️ Attention :</p>
+              <ul className="space-y-1 list-disc list-inside">
+                <li>L'acheteur recevra un email avec le motif d'annulation</li>
+                <li>Le paiement Wave sera remboursé manuellement par le support</li>
+                <li>Cette action est définitive</li>
+              </ul>
+            </div>
+            <div>
+              <Label className="text-sm font-semibold">
+                Motif d'annulation <span className="text-rose-500">*</span>
+              </Label>
+              <Textarea
+                value={cancelReason}
+                onChange={(e) => setCancelReason(e.target.value)}
+                placeholder="Ex : Stock épuisé, item plus disponible, problème technique…"
+                className="mt-1 rounded-xl min-h-[70px]"
+                maxLength={200}
+              />
+              <div className="flex gap-2 mt-2 flex-wrap">
+                {["Stock épuisé", "Item plus disponible", "Problème technique"].map((r) => (
+                  <button
+                    key={r}
+                    onClick={() => setCancelReason(r)}
+                    className="text-xs px-2 py-1 rounded-full bg-slate-100 hover:bg-slate-200 font-medium text-slate-700"
+                  >
+                    {r}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button
+              variant="ghost"
+              onClick={() => {
+                setShowCancelConfirm(false);
+                setCancelReason("");
+              }}
+              disabled={validating}
+              className="rounded-full"
+            >
+              Retour
+            </Button>
+            <Button
+              onClick={handleCancel}
+              disabled={validating}
+              className="bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-full"
+            >
+              {validating ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                <X className="size-4" />
+              )}
+              Confirmer l'annulation
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Sheet>
   );
 }

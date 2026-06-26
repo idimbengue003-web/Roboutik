@@ -25,6 +25,58 @@ import { db } from "@/lib/db";
 export const authOptions: NextAuthOptions = {
   session: {
     strategy: "jwt",
+    // Explicit maxAge so iOS Safari doesn't treat the cookie as a session cookie
+    // (session cookies are cleared when the browser fully closes).
+    maxAge: 30 * 24 * 60 * 60, // 30 days
+    updateAge: 24 * 60 * 60, // refresh JWT once per day
+  },
+  // Explicit cookie config to fix iOS Safari logout issue.
+  // Default NextAuth cookies use SameSite=Lax which is OK, but on iOS Safari
+  // the __Secure- prefix helps persistence and prevents ITP from clearing them.
+  cookies: {
+    sessionToken: {
+      name: process.env.NODE_ENV === "production"
+        ? "__Secure-next-auth.session-token"
+        : "next-auth.session-token",
+      options: {
+        httpOnly: true,
+        sameSite: "lax",
+        path: "/",
+        secure: process.env.NODE_ENV === "production",
+      },
+    },
+    callbackUrl: {
+      name: process.env.NODE_ENV === "production"
+        ? "__Secure-next-auth.callback-url"
+        : "next-auth.callback-url",
+      options: {
+        sameSite: "lax",
+        path: "/",
+        secure: process.env.NODE_ENV === "production",
+      },
+    },
+    csrfToken: {
+      name: process.env.NODE_ENV === "production"
+        ? "__Secure-next-auth.csrf-token"
+        : "next-auth.csrf-token",
+      options: {
+        httpOnly: true,
+        sameSite: "lax",
+        path: "/",
+        secure: process.env.NODE_ENV === "production",
+      },
+    },
+    pkceCodeVerifier: {
+      name: process.env.NODE_ENV === "production"
+        ? "__Secure-next-auth.pkce.code_verifier"
+        : "next-auth.pkce.code_verifier",
+      options: {
+        httpOnly: true,
+        sameSite: "lax",
+        path: "/",
+        secure: process.env.NODE_ENV === "production",
+      },
+    },
   },
   providers: [
     GoogleProvider({
