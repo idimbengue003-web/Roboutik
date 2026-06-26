@@ -105,7 +105,14 @@ export function ChatDrawer() {
   }
 
   async function handleValidate() {
-    if (!activeOrderId) return;
+    if (!activeOrderId || !order) return;
+    // Confirmation required before validating
+    const ok = window.confirm(
+      `Valider cette commande ?\n\nLe vendeur recevra ${formatFCFA(
+        order.sellerNetAmount ?? order.amount
+      )} sur son solde et la commande sera terminée.`
+    );
+    if (!ok) return;
     setValidating(true);
     try {
       const r = await fetch(`/api/orders/${activeOrderId}/validate`, {
@@ -121,7 +128,7 @@ export function ChatDrawer() {
       bumpOrders();
       toast({
         title: "Commande validée 🎉",
-        description: `Le vendeur a reçu ${formatFCFA(order?.amount ?? 0)}.`,
+        description: `Le vendeur a reçu ${formatFCFA(order.sellerNetAmount ?? order.amount)}.`,
       });
     } catch (e) {
       toast({
@@ -134,10 +141,52 @@ export function ChatDrawer() {
     }
   }
 
+  async function handleCancel() {
+    if (!activeOrderId || !me || !order) return;
+    const reason = window.prompt(
+      `Annuler cette commande ?\n\nIndique un motif (visible par l'acheteur) :`,
+      "Stock épuisé"
+    );
+    if (reason === null) return; // user clicked Cancel
+    setValidating(true);
+    try {
+      const r = await fetch(`/api/orders/${activeOrderId}/cancel`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: me.id, reason: reason.trim() }),
+      });
+      if (!r.ok) {
+        const d = await r.json().catch(() => ({}));
+        throw new Error(d.error ?? "Échec de l'annulation");
+      }
+      const d = await r.json();
+      if (d.order) setOrder(d.order);
+      setMessages(d.order?.messages ?? []);
+      bumpOrders();
+      toast({
+        title: "Commande annulée",
+        description: "L'acheteur a été notifié.",
+      });
+    } catch (e) {
+      toast({
+        title: "Annulation impossible",
+        description: e instanceof Error ? e.message : "Erreur",
+        variant: "destructive",
+      });
+    } finally {
+      setValidating(false);
+    }
+  }
+
   const open = !!activeOrderId;
   const status = order?.status;
   const canValidate = status === "DELIVERED";
   const canRate = status === "VALIDATED" && !order?.rating;
+  // Seller can cancel only if order is paid (not yet validated) and they're the seller
+  const isSeller = order?.sellerId === me?.id;
+  const isBuyer = order?.buyerId === me?.id;
+  const canCancel =
+    isSeller && (status === "PAID" || status === "DELIVERED");
 
   const autoMs =
     order?.autoValidateAt && (status === "PAID" || status === "DELIVERED")
@@ -197,53 +246,126 @@ export function ChatDrawer() {
           </p>
         </SheetHeader>
 
-        {/* Status banner */}
-        {status === "DELIVERED" && (
-          <div className="bg-violet-50 border-b border-violet-200 px-4 py-3 flex items-center gap-3">
-            <Package className="size-5 text-violet-600 shrink-0" />
-            <div className="flex-1 text-xs text-violet-800">
-              <strong>Le vendeur a livré ta commande !</strong> Vérifie que tu as
-              bien reçu, puis valide pour libérer le paiement.
+        {/* Status banner — platform-style unified design */}
+        {status === "DELIVERED" && isBuyer && (
+          <div className="border-b border-violet-200 bg-gradient-to-r from-violet-50 to-fuchsia-50 px-4 py-3">
+            <div className="flex items-center gap-2 mb-1.5">
+              <ShieldCheck className="size-3.5 text-fuchsia-600" />
+              <span className="text-[10px] font-bold tracking-wide text-fuchsia-600 uppercase">
+                RobloxBoutik
+              </span>
             </div>
+            <p className="text-xs text-slate-700 mb-2.5">
+              📦 <strong>{order?.seller?.username}</strong> a livré ta commande. Vérifie la réception puis valide pour terminer.
+            </p>
             <Button
               size="sm"
               onClick={handleValidate}
               disabled={validating}
-              className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-full"
+              className="w-full h-9 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold"
             >
               {validating ? (
                 <Loader2 className="size-4 animate-spin" />
               ) : (
                 <CheckCircle2 className="size-4" />
               )}
-              Valider
+              Valider la commande
             </Button>
           </div>
         )}
+        {status === "DELIVERED" && isSeller && (
+          <div className="border-b border-violet-200 bg-gradient-to-r from-violet-50 to-fuchsia-50 px-4 py-3">
+            <div className="flex items-center gap-2 mb-1.5">
+              <ShieldCheck className="size-3.5 text-fuchsia-600" />
+              <span className="text-[10px] font-bold tracking-wide text-fuchsia-600 uppercase">
+                RobloxBoutik
+              </span>
+            </div>
+            <p className="text-xs text-slate-700">
+              ✅ Tu as livré la commande. En attente de validation par l'acheteur.
+            </p>
+          </div>
+        )}
         {status === "PAID" && (
-          <div className="bg-sky-50 border-b border-sky-200 px-4 py-2.5 flex items-center gap-2 text-xs text-sky-800">
-            <Clock className="size-4 shrink-0" />
-            En attente de livraison. Écris au vendeur pour qu'il livre ta commande.
+          <div className="border-b border-sky-200 bg-gradient-to-r from-sky-50 to-cyan-50 px-4 py-3">
+            <div className="flex items-center gap-2 mb-1.5">
+              <ShieldCheck className="size-3.5 text-fuchsia-600" />
+              <span className="text-[10px] font-bold tracking-wide text-fuchsia-600 uppercase">
+                RobloxBoutik
+              </span>
+            </div>
+            <p className="text-xs text-slate-700 mb-2">
+              {isSeller ? (
+                <>💰 Paiement reçu de <strong>{order?.buyer?.username}</strong>. Livre la commande puis échange avec l'acheteur.</>
+              ) : (
+                <>⏳ Paiement reçu. <strong>{order?.seller?.username}</strong> prépare ta commande. Échange avec lui ci-dessous.</>
+              )}
+            </p>
+            {canCancel && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={handleCancel}
+                disabled={validating}
+                className="w-full h-9 rounded-full text-rose-600 border-rose-300 hover:bg-rose-50 font-semibold"
+              >
+                <X className="size-4" />
+                Annuler la commande
+              </Button>
+            )}
+          </div>
+        )}
+        {status === "PENDING_PAYMENT" && (
+          <div className="border-b border-amber-200 bg-gradient-to-r from-amber-50 to-orange-50 px-4 py-3">
+            <div className="flex items-center gap-2 mb-1.5">
+              <ShieldCheck className="size-3.5 text-fuchsia-600" />
+              <span className="text-[10px] font-bold tracking-wide text-fuchsia-600 uppercase">
+                RobloxBoutik
+              </span>
+            </div>
+            <p className="text-xs text-slate-700">
+              ⏳ En attente du paiement Wave de {order ? formatFCFA(order.amount) : ""}.
+            </p>
           </div>
         )}
         {status === "VALIDATED" && (
-          <div className="bg-emerald-50 border-b border-emerald-200 px-4 py-2.5 flex items-center justify-between gap-2 text-xs text-emerald-800">
-            <div className="flex items-center gap-2">
-              <ShieldCheck className="size-4 shrink-0" />
-              Commande terminée. Le vendeur a reçu son paiement.
+          <div className="border-b border-emerald-200 bg-gradient-to-r from-emerald-50 to-teal-50 px-4 py-3">
+            <div className="flex items-center gap-2 mb-1.5">
+              <ShieldCheck className="size-3.5 text-fuchsia-600" />
+              <span className="text-[10px] font-bold tracking-wide text-fuchsia-600 uppercase">
+                RobloxBoutik
+              </span>
             </div>
-            {canRate && order && (
-              <button
-                onClick={() => {
-                  setRateOrderId(order.id);
-                  setActiveOrderId(null);
-                }}
-                className="inline-flex items-center gap-1 rounded-full bg-amber-100 hover:bg-amber-200 text-amber-800 font-bold px-2 py-1"
-              >
-                <Star className="size-3 fill-amber-500 text-amber-500" />
-                Noter
-              </button>
-            )}
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-xs text-slate-700">
+                ✅ Commande terminée. {isSeller ? "Tu as reçu ton paiement." : "Le vendeur a reçu son paiement."}
+              </p>
+              {canRate && order && (
+                <button
+                  onClick={() => {
+                    setRateOrderId(order.id);
+                    setActiveOrderId(null);
+                  }}
+                  className="inline-flex items-center gap-1 rounded-full bg-amber-100 hover:bg-amber-200 text-amber-800 font-bold px-2.5 py-1 text-xs shrink-0"
+                >
+                  <Star className="size-3 fill-amber-500 text-amber-500" />
+                  Noter
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+        {status === "CANCELLED" && (
+          <div className="border-b border-rose-200 bg-gradient-to-r from-rose-50 to-pink-50 px-4 py-3">
+            <div className="flex items-center gap-2 mb-1.5">
+              <ShieldCheck className="size-3.5 text-fuchsia-600" />
+              <span className="text-[10px] font-bold tracking-wide text-fuchsia-600 uppercase">
+                RobloxBoutik
+              </span>
+            </div>
+            <p className="text-xs text-slate-700">
+              ❌ Commande annulée. {isSeller ? "L'acheteur a été notifié." : "Le vendeur a annulé cette commande."}
+            </p>
           </div>
         )}
 
