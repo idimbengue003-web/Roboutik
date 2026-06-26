@@ -2,9 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
-import { Button } from "@/components/ui/button";
 import { useAppStore } from "@/lib/store";
-import { ContactSellerDialog } from "@/components/shop/messages-view";
 import { formatFCFA, getListingImages } from "@/lib/types";
 import {
   ArrowLeft,
@@ -14,7 +12,6 @@ import {
   Star,
   Package,
   TrendingUp,
-  MessageCircle,
   ShieldCheck,
 } from "lucide-react";
 
@@ -45,15 +42,11 @@ export default function SellerProfilePage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = React.use(params);
-  const { me, setLoginOpen } = useAppStore();
+  const { me } = useAppStore();
   const [data, setData] = useState<SellerProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [tab, setTab] = useState<"listings" | "reviews" | "sales">("listings");
-  const [contactTarget, setContactTarget] = useState<{
-    listingId: string;
-    listingTitle: string;
-  } | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -463,38 +456,7 @@ export default function SellerProfilePage({
         </div>
       )}
 
-      {/* Contact button (only if not own profile) — opens local dialog */}
-      {!isOwn && listings.length > 0 && (
-        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-30 w-full max-w-md px-4">
-          <Button
-            onClick={() => {
-              if (!me) {
-                setLoginOpen(true);
-                return;
-              }
-              const first = listings[0];
-              setContactTarget({
-                listingId: first.id,
-                listingTitle: first.title,
-              });
-            }}
-            className="w-full h-12 rounded-full bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white font-bold shadow-lg"
-          >
-            <MessageCircle className="size-5" />
-            Contacter {seller.username}
-          </Button>
-        </div>
-      )}
-
-      {/* Local ContactSellerDialog — mounted here so it works on this route */}
-      <ContactSellerDialog
-        listingId={contactTarget?.listingId ?? ""}
-        listingTitle={contactTarget?.listingTitle ?? ""}
-        sellerName={seller.username}
-        open={!!contactTarget}
-        onClose={() => setContactTarget(null)}
-        onStarted={() => setContactTarget(null)}
-      />
+      {/* Contact button removed — buyers contact sellers directly from listing pages */}
     </div>
   );
 }
