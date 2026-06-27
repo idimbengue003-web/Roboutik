@@ -31,7 +31,7 @@ import {
   Pencil,
   Loader2,
 } from "lucide-react";
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, memo } from "react";
 import type { Listing, Order, User, Withdrawal, Game } from "@/lib/types";
 import { formatFCFA, getListingImages } from "@/lib/types";
 import { RatingBadge } from "./rating-modal";
@@ -76,6 +76,19 @@ export function SellerView() {
   }, [me]);
 
   useEffect(() => {
+    load();
+  }, [load]);
+
+  // Stable callbacks so CreateListingDialog (memoized) doesn't re-render
+  // every time SellerView re-renders (which would lose form state on iPhone)
+  const handleCloseCreate = useCallback(() => setShowCreate(false), []);
+  const handleCreated = useCallback(() => {
+    setShowCreate(false);
+    load();
+  }, [load]);
+  const handleCloseWithdraw = useCallback(() => setShowWithdraw(false), []);
+  const handleWithdrawDone = useCallback(() => {
+    setShowWithdraw(false);
     load();
   }, [load]);
 
@@ -325,21 +338,15 @@ export function SellerView() {
 
       <CreateListingDialog
         open={showCreate}
-        onClose={() => setShowCreate(false)}
+        onClose={handleCloseCreate}
         games={games}
-        onCreated={() => {
-          setShowCreate(false);
-          load();
-        }}
+        onCreated={handleCreated}
       />
       <WithdrawDialog
         open={showWithdraw}
-        onClose={() => setShowWithdraw(false)}
+        onClose={handleCloseWithdraw}
         maxAmount={data.balance}
-        onDone={() => {
-          setShowWithdraw(false);
-          load();
-        }}
+        onDone={handleWithdrawDone}
       />
     </div>
   );
@@ -786,7 +793,7 @@ function EditListingDialog({
   );
 }
 
-function CreateListingDialog({
+const CreateListingDialog = memo(function CreateListingDialog({
   open,
   onClose,
   games,
@@ -797,7 +804,7 @@ function CreateListingDialog({
   games: Game[];
   onCreated: () => void;
 }) {
-  const { me } = useAppStore();
+  const me = useAppStore((s) => s.me);
   const { toast } = useToast();
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -989,7 +996,7 @@ function CreateListingDialog({
       </DialogContent>
     </Dialog>
   );
-}
+});
 
 function WithdrawDialog({
   open,
