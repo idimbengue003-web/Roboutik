@@ -76,6 +76,40 @@ export async function POST(
       console.error("Seller notification (validated) failed:", e);
     }
 
+    // 🔔 Ask the BUYER to leave a review
+    try {
+      const { sendNotification, buildEmailHtml } = await import("@/lib/notifications");
+      sendNotification({
+        userId: order.buyerId,
+        type: "ORDER_VALIDATED",
+        subject: `⭐ Comment s'est passée ta commande ?`,
+        body: buildEmailHtml(
+          "Laisse un avis ⭐",
+          `<p>Bonjour <strong>${order.buyer?.username ?? ""}</strong>,</p>
+           <p>Ta commande a été validée ! On espère que tu es satisfait·e de ton achat :</p>
+           <div style="background:#f8fafc;border-radius:12px;padding:16px;margin:16px 0;">
+             <p style="margin:0;font-size:16px;"><strong>${order.listing.title}</strong></p>
+             <p style="margin:4px 0 0;color:#475569;">${order.listing.game?.name} · ${order.amount} FCFA</p>
+           </div>
+           <p>Ton avis aide les autres acheteurs à faire confiance à <strong>${order.seller.username}</strong> et à RobloxBoutik.</p>
+           <p>Ça prend 10 secondes :</p>
+           <p style="margin-top:24px;">
+             <a href="https://robloxboutik.com" style="background:#f59e0b;color:white;padding:14px 28px;border-radius:9999px;text-decoration:none;font-weight:bold;font-size:16px;">
+               ⭐ Noter ma commande
+             </a>
+           </p>
+           <p style="margin-top:16px;font-size:12px;color:#94a3b8;">
+             Connecte-toi, ouvre l'onglet Commandes, clique sur ta commande puis sur "Noter".
+           </p>`
+        ),
+        whatsappBody: `⭐ RobloxBoutik : ta commande "${order.listing.title}" est validée ! Laisse un avis en te connectant sur robloxboutik.com`,
+        refType: "REVIEW_REQUEST",
+        refId: order.id,
+      }).catch((e) => console.error("Review request failed:", e));
+    } catch (e) {
+      console.error("Review request setup failed:", e);
+    }
+
     const updated = await db.order.findUnique({
       where: { id },
       include: {
