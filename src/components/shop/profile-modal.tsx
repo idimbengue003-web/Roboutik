@@ -26,7 +26,10 @@ import { useToast } from "@/hooks/use-toast";
 const AVATAR_OPTIONS = ["🎮", "🧒", "👑", "🛡️", "💰", "🛒", "🚀", "⚡", "🎯", "🏆", "💎", "🔥", "⭐", "👾", "🤖", "🐱"];
 
 export function ProfileModal() {
-  const { me, setMe, profileOpen, setProfileOpen } = useAppStore();
+  const me = useAppStore((s) => s.me);
+  const setMe = useAppStore((s) => s.setMe);
+  const profileOpen = useAppStore((s) => s.profileOpen);
+  const setProfileOpen = useAppStore((s) => s.setProfileOpen);
   const { signOut } = useAuth();
   const { toast } = useToast();
 

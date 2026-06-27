@@ -52,7 +52,9 @@ type SellerData = {
 };
 
 export function SellerView() {
-  const { me, setLoginOpen, games } = useAppStore();
+  const me = useAppStore((s) => s.me);
+  const setLoginOpen = useAppStore((s) => s.setLoginOpen);
+  const games = useAppStore((s) => s.games);
   const { toast } = useToast();
 
   const [data, setData] = useState<SellerData | null>(null);
