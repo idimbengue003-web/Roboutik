@@ -665,6 +665,56 @@ function UsersTab({ adminId }: { adminId: string }) {
                     </Button>
                   )
                 )}
+                {/* Promote/Demote admin button */}
+                {u.isAdmin ? (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={async () => {
+                      if (!confirm(`Retirer le rôle admin de ${u.username} ?`)) return;
+                      try {
+                        const r = await fetch(`/api/admin/users/${u.id}/promote-admin?adminId=${adminId}`, { method: "DELETE" });
+                        if (!r.ok) {
+                          const e = await r.json().catch(() => ({}));
+                          throw new Error(e.error ?? "Échec");
+                        }
+                        toast({ title: `${u.username} n'est plus admin` });
+                        load();
+                      } catch (e) {
+                        toast({ title: "Erreur", description: e instanceof Error ? e.message : "?", variant: "destructive" });
+                      }
+                    }}
+                    className="h-7 text-[10px] rounded-full text-rose-600"
+                  >
+                    Retirer admin
+                  </Button>
+                ) : (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={async () => {
+                      if (!confirm(`Promouvoir ${u.username} en administrateur ?\n\nIl/elle pourra bannir, valider des retraits, etc.`)) return;
+                      try {
+                        const r = await fetch(`/api/admin/users/${u.id}/promote-admin`, {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ adminId }),
+                        });
+                        if (!r.ok) {
+                          const e = await r.json().catch(() => ({}));
+                          throw new Error(e.error ?? "Échec");
+                        }
+                        toast({ title: `${u.username} est maintenant admin ✓` });
+                        load();
+                      } catch (e) {
+                        toast({ title: "Erreur", description: e instanceof Error ? e.message : "?", variant: "destructive" });
+                      }
+                    }}
+                    className="h-7 text-[10px] rounded-full text-fuchsia-600 border-fuchsia-300 hover:bg-fuchsia-50"
+                  >
+                    🛡️ Rendre admin
+                  </Button>
+                )}
               </div>
             </div>
           ))}

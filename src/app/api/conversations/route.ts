@@ -7,7 +7,10 @@ import { sanitizeMessage } from "@/lib/sanitize";
 import { isFictionalSeller, getAdminForwardUserId } from "@/lib/fictional-sellers";
 
 // GET /api/conversations?userId=...
-// Returns all conversations where user is buyer OR seller
+// Returns all conversations where user is buyer OR seller.
+// If the user is an admin, also includes conversations where the seller is
+// a fictional seller (so the admin can see and handle pre-sale messages
+// sent to the 7 fictional accounts).
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const userId = searchParams.get("userId");
@@ -18,10 +21,34 @@ export async function GET(req: NextRequest) {
   const { user, error } = await getActorById(userId);
   if (error) return errorResponse(error);
 
+  let whereClause: { OR: Array<{ buyerId?: string; sellerId?: string | { in: string[] } }> } = {
+    OR: [{ buyerId: user!.id }, { sellerId: user!.id }],
+  };
+
+  // If the user is an admin, also include conversations where the seller
+  // is any fictional seller (emails ending with @robloxboutik.sn)
+  if (user!.isAdmin) {
+    const fictionalSellers = await db.user.findMany({
+      where: {
+        email: { endsWith: "@robloxboutik.sn" },
+        isSeller: true,
+      },
+      select: { id: true },
+    });
+    const fictionalSellerIds = fictionalSellers.map((s) => s.id);
+    if (fictionalSellerIds.length > 0) {
+      whereClause = {
+        OR: [
+          { buyerId: user!.id },
+          { sellerId: user!.id },
+          { sellerId: { in: fictionalSellerIds } as any },
+        ],
+      };
+    }
+  }
+
   const conversations = await db.conversation.findMany({
-    where: {
-      OR: [{ buyerId: user!.id }, { sellerId: user!.id }],
-    },
+    where: whereClause,
     include: {
       listing: { include: { game: true } },
       buyer: true,
