@@ -27,6 +27,8 @@ import {
   AlertTriangle,
   Package,
   ArrowDownToLine,
+  Zap,
+  Upload,
 } from "lucide-react";
 import { useEffect, useState, useCallback } from "react";
 import type { AuditLog, User, Withdrawal } from "@/lib/types";
@@ -82,7 +84,7 @@ export function AdminView() {
 
 function AdminDashboard({ adminId }: { adminId: string }) {
   const [tab, setTab] = useState<
-    "overview" | "users" | "orders" | "categories" | "appearance" | "withdrawals" | "tickets" | "audit"
+    "overview" | "users" | "orders" | "categories" | "appearance" | "withdrawals" | "tickets" | "audit" | "import"
   >("overview");
   const [stats, setStats] = useState<AdminStats | null>(null);
 
@@ -142,6 +144,7 @@ function AdminDashboard({ adminId }: { adminId: string }) {
           { id: "users", label: "Utilisateurs", icon: Users },
           { id: "orders", label: "Commandes", icon: Package },
           { id: "categories", label: "Catégories", icon: CheckCircle2 },
+          { id: "import", label: "Import rapide", icon: Zap },
           { id: "appearance", label: "Apparence", icon: Shield },
           { id: "withdrawals", label: "Retraits", icon: ArrowDownToLine },
           { id: "tickets", label: "Support", icon: HeadphonesIcon },
@@ -172,6 +175,7 @@ function AdminDashboard({ adminId }: { adminId: string }) {
       {tab === "users" && <UsersTab adminId={adminId} />}
       {tab === "orders" && <OrdersTab adminId={adminId} />}
       {tab === "categories" && <CategoriesTab adminId={adminId} />}
+      {tab === "import" && <ImportTab adminId={adminId} />}
       {tab === "appearance" && <AppearanceTab adminId={adminId} />}
       {tab === "withdrawals" && <WithdrawalsTab adminId={adminId} />}
       {tab === "tickets" && <TicketsTab adminId={adminId} />}
@@ -2090,6 +2094,278 @@ function ColorField({
           maxLength={7}
           disabled={disabled}
         />
+      </div>
+    </div>
+  );
+}
+
+/* ────────────────────────────────────────────────────────────────────── */
+/* Import tab — bulk import listings from pasted text                     */
+/* ────────────────────────────────────────────────────────────────────── */
+
+function ImportTab({ adminId }: { adminId: string }) {
+  const { toast } = useToast();
+  const [games, setGames] = useState<any[]>([]);
+  const [gameId, setGameId] = useState("");
+  const [rawText, setRawText] = useState("");
+  const [itemType, setItemType] = useState<"item" | "account">("item");
+  const [importing, setImporting] = useState(false);
+  const [result, setResult] = useState<any | null>(null);
+
+  // Load games
+  useEffect(() => {
+    (async () => {
+      try {
+        const r = await fetch("/api/games");
+        if (!r.ok) return;
+        const d = await r.json();
+        setGames(d.games ?? []);
+      } catch {}
+    })();
+  }, []);
+
+  // Parse the pasted text into items
+  function parseItems(): { title: string; priceUsd: number; type: string }[] {
+    const lines = rawText
+      .split("\n")
+      .map((l) => l.trim())
+      .filter((l) => l.length > 0);
+
+    const items: { title: string; priceUsd: number; type: string }[] = [];
+
+    for (const line of lines) {
+      // Try to extract price: look for patterns like "1.94 $" or "$1.94" or "1.94$"
+      const priceMatch = line.match(/(\d+(?:\.\d+)?)\s*\$|\$\s*(\d+(?:\.\d+)?)/);
+      if (!priceMatch) continue;
+
+      const priceUsd = parseFloat(priceMatch[1] || priceMatch[2]);
+      if (!priceUsd || priceUsd <= 0) continue;
+
+      // Extract title: everything before the price, cleaned up
+      let title = line
+        .replace(/(\d+(?:\.\d+)?)\s*\$|\$\s*(\d+(?:\.\d+)?)/, "")
+        .replace(/[,|]\s*(Items|Trade|Mail|Account|Accounts|Services|Gamepass)[\s,]*/g, "")
+        .replace(/[,|]\s*(Items|Trade|Mail|Account|Accounts|Services|Gamepass)/g, "")
+        .replace(/^[,|.\s]+/, "")
+        .replace(/[,|.\s]+$/, "")
+        .trim();
+
+      // Remove excessive emojis at start/end (keep some for readability)
+      title = title.replace(/^[^\w]{3,}/, "").trim();
+      if (!title) title = `Item ${priceUsd}$`;
+
+      // Limit to 80 chars
+      if (title.length > 80) title = title.slice(0, 77) + "...";
+
+      items.push({ title, priceUsd, type: itemType });
+    }
+
+    return items;
+  }
+
+  const parsedItems = parseItems();
+
+  async function handleImport() {
+    if (!gameId) {
+      toast({ title: "Sélectionne un jeu", variant: "destructive" });
+      return;
+    }
+    if (parsedItems.length === 0) {
+      toast({ title: "Aucun item valide trouvé", variant: "destructive" });
+      return;
+    }
+
+    setImporting(true);
+    setResult(null);
+    try {
+      const r = await fetch(`/api/admin/bulk-import?adminId=${adminId}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ gameId, items: parsedItems }),
+      });
+      if (!r.ok) {
+        const e = await r.json().catch(() => ({}));
+        throw new Error(e.error ?? "Échec");
+      }
+      const d = await r.json();
+      setResult(d);
+      toast({
+        title: `Import terminé ✅`,
+        description: `${d.created} créées, ${d.updated} mises à jour, ${d.skipped} ignorées`,
+      });
+    } catch (e) {
+      toast({
+        title: "Erreur",
+        description: e instanceof Error ? e.message : "?",
+        variant: "destructive",
+      });
+    } finally {
+      setImporting(false);
+    }
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="rounded-2xl border bg-white p-4 space-y-4">
+        <div>
+          <h3 className="font-bold text-slate-900 flex items-center gap-2">
+            <Upload className="size-5 text-fuchsia-600" />
+            Import rapide d'annonces
+          </h3>
+          <p className="text-xs text-slate-500 mt-1">
+            Colle une liste d'annonces (titre + prix en $). Le système parse automatiquement,
+            convertit en FCFA (1$ = 850 F + 1000F marge + 16% commission) et crée les annonces.
+          </p>
+        </div>
+
+        {/* Game selector */}
+        <div>
+          <Label className="text-sm font-semibold">Jeu / Catégorie</Label>
+          <select
+            value={gameId}
+            onChange={(e) => setGameId(e.target.value)}
+            className="mt-1 w-full h-10 rounded-xl border bg-white px-3 text-sm"
+          >
+            <option value="">— Sélectionne un jeu —</option>
+            {games.map((g) => (
+              <option key={g.id} value={g.id}>
+                {g.name}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {/* Type selector */}
+        <div>
+          <Label className="text-sm font-semibold">Type d'annonce</Label>
+          <div className="flex gap-2 mt-1">
+            <button
+              onClick={() => setItemType("item")}
+              className={`px-4 py-2 rounded-full text-sm font-medium ${
+                itemType === "item"
+                  ? "bg-fuchsia-600 text-white"
+                  : "bg-slate-100 text-slate-600"
+              }`}
+            >
+              🎮 Item (trade)
+            </button>
+            <button
+              onClick={() => setItemType("account")}
+              className={`px-4 py-2 rounded-full text-sm font-medium ${
+                itemType === "account"
+                  ? "bg-fuchsia-600 text-white"
+                  : "bg-slate-100 text-slate-600"
+              }`}
+            >
+              👤 Compte
+            </button>
+          </div>
+        </div>
+
+        {/* Text area */}
+        <div>
+          <Label className="text-sm font-semibold">
+            Liste d'annonces (colle ton texte ici)
+          </Label>
+          <textarea
+            value={rawText}
+            onChange={(e) => setRawText(e.target.value)}
+            placeholder={`Exemple:\nCoco and Mango 569M/s 1.94 $\nFragola La La La 32M/s 3.25 $\nLos Primos 310M/s 2.20 $`}
+            className="mt-1 w-full min-h-[200px] rounded-xl border bg-slate-50 p-3 text-sm font-mono"
+          />
+          <p className="text-[11px] text-slate-400 mt-1">
+            Format détecté automatiquement : « titre prix $ » ou « titre | prix $ ».
+            Une ligne = une annonce.
+          </p>
+        </div>
+
+        {/* Preview */}
+        {parsedItems.length > 0 && (
+          <div className="rounded-xl bg-slate-50 p-3">
+            <p className="text-xs font-bold text-slate-700 mb-2">
+              📋 Aperçu — {parsedItems.length} item(s) détecté(s) :
+            </p>
+            <div className="max-h-48 overflow-y-auto space-y-1">
+              {parsedItems.slice(0, 50).map((item, i) => {
+                const fcfa = Math.round((item.priceUsd * 850 + 1000) / 100) * 100;
+                const display = Math.round(fcfa * 1.16);
+                return (
+                  <div
+                    key={i}
+                    className="flex items-center justify-between text-xs py-1 border-b border-slate-100 last:border-0"
+                  >
+                    <span className="text-slate-700 truncate flex-1 mr-2">
+                      {item.title}
+                    </span>
+                    <span className="text-slate-400 shrink-0">
+                      ${item.priceUsd} → {display.toLocaleString("fr-FR")} F
+                    </span>
+                  </div>
+                );
+              })}
+              {parsedItems.length > 50 && (
+                <p className="text-[11px] text-slate-400 text-center pt-1">
+                  ... et {parsedItems.length - 50} de plus
+                </p>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Import button */}
+        <Button
+          onClick={handleImport}
+          disabled={importing || !gameId || parsedItems.length === 0}
+          className="w-full h-12 rounded-full bg-gradient-to-r from-fuchsia-600 to-orange-500 text-white font-bold"
+        >
+          {importing ? (
+            <>
+              <Clock className="size-5 animate-spin" />
+              Import en cours…
+            </>
+          ) : (
+            <>
+              <Zap className="size-5" />
+              Importer {parsedItems.length} annonce(s)
+            </>
+          )}
+        </Button>
+
+        {/* Result */}
+        {result && (
+          <div className="rounded-xl bg-emerald-50 border border-emerald-200 p-4">
+            <p className="font-bold text-emerald-800 mb-2">
+              ✅ Import terminé
+            </p>
+            <div className="grid grid-cols-3 gap-3 text-sm">
+              <div>
+                <p className="text-emerald-600 text-xs">Créées</p>
+                <p className="font-bold text-emerald-900 text-lg">{result.created}</p>
+              </div>
+              <div>
+                <p className="text-emerald-600 text-xs">Mises à jour</p>
+                <p className="font-bold text-emerald-900 text-lg">{result.updated}</p>
+              </div>
+              <div>
+                <p className="text-emerald-600 text-xs">Ignorées</p>
+                <p className="font-bold text-emerald-900 text-lg">{result.skipped}</p>
+              </div>
+            </div>
+            {result.errors && result.errors.length > 0 && (
+              <details className="mt-2">
+                <summary className="text-xs text-rose-600 cursor-pointer">
+                  {result.errors.length} erreur(s)
+                </summary>
+                <div className="mt-1 space-y-0.5">
+                  {result.errors.map((e: string, i: number) => (
+                    <p key={i} className="text-[11px] text-rose-500">{e}</p>
+                  ))}
+                </div>
+              </details>
+            )}
+            <p className="text-[11px] text-slate-500 mt-2">{result.rate}</p>
+          </div>
+        )}
       </div>
     </div>
   );
