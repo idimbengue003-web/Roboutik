@@ -1,20 +1,52 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { parseBody, errorResponse, createOrderSchema } from "@/lib/validation";
+import { isFictionalSeller } from "@/lib/fictional-sellers";
 
-// GET /api/orders?buyerId=...    or  ?sellerId=...
+// GET /api/orders?buyerId=...    or  ?sellerId=...    or  ?userId=...
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const buyerId = searchParams.get("buyerId");
   const sellerId = searchParams.get("sellerId");
   const userId = searchParams.get("userId");
 
-  // If userId is provided, return orders where the user is either buyer OR seller
+  // If userId is provided, return orders where the user is either buyer OR seller.
+  // If the user is an admin, also include orders where the seller is a fictional seller
+  // (so the admin can see and handle all orders placed on fictional accounts' listings).
   if (userId && !buyerId && !sellerId) {
+    // Check if the user is an admin and should see fictional sellers' orders
+    const user = await db.user.findUnique({
+      where: { id: userId },
+      select: { id: true, isAdmin: true },
+    });
+
+    let whereClause: { OR: Array<{ buyerId?: string; sellerId?: string }> } = {
+      OR: [{ buyerId: userId }, { sellerId: userId }],
+    };
+
+    if (user?.isAdmin) {
+      // Find all fictional seller IDs
+      const fictionalSellers = await db.user.findMany({
+        where: {
+          email: { endsWith: "@robloxboutik.sn" },
+          isSeller: true,
+        },
+        select: { id: true },
+      });
+      const fictionalSellerIds = fictionalSellers.map((s) => s.id);
+      whereClause = {
+        OR: [
+          { buyerId: userId },
+          { sellerId: userId },
+          ...(fictionalSellerIds.length > 0
+            ? [{ sellerId: { in: fictionalSellerIds } } as any]
+            : []),
+        ],
+      };
+    }
+
     const orders = await db.order.findMany({
-      where: {
-        OR: [{ buyerId: userId }, { sellerId: userId }],
-      },
+      where: whereClause,
       include: {
         listing: { include: { game: true, ratings: true } },
         seller: true,
@@ -25,8 +57,6 @@ export async function GET(req: NextRequest) {
       orderBy: { createdAt: "desc" },
     });
 
-    // No auto-validation anymore — buyer must manually validate to release payment.
-    // This prevents scams where sellers deliver nothing and wait for the 24h auto-validation.
     return NextResponse.json({ orders });
   }
 

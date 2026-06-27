@@ -4,6 +4,7 @@ import { getActorById, errorResponse } from "@/lib/security";
 import { sendNotification, buildEmailHtml } from "@/lib/notifications";
 import { parseBody, createConversationSchema } from "@/lib/validation";
 import { sanitizeMessage } from "@/lib/sanitize";
+import { isFictionalSeller, getAdminForwardUserId } from "@/lib/fictional-sellers";
 
 // GET /api/conversations?userId=...
 // Returns all conversations where user is buyer OR seller
@@ -120,10 +121,21 @@ export async function POST(req: NextRequest) {
     });
 
     // Send notification to the SELLER (fire-and-forget for instant response)
+    // If the seller is fictional, redirect the notification to the real admin
+    const sellerIsFictional = isFictionalSeller(listing.seller?.email);
+    const notifyUserId = sellerIsFictional
+      ? getAdminForwardUserId()!
+      : listing.sellerId;
+    const sellerDisplayName = sellerIsFictional
+      ? `${listing.seller?.username} (vendeur virtuel)`
+      : listing.seller?.username;
+
     sendNotification({
-      userId: listing.sellerId,
+      userId: notifyUserId,
       type: "NEW_MESSAGE",
-      subject: `Nouveau message de ${buyer!.username}`,
+      subject: sellerIsFictional
+        ? `📨 [${listing.seller?.username}] Nouveau message de ${buyer!.username}`
+        : `Nouveau message de ${buyer!.username}`,
       body: buildEmailHtml(
         "Nouveau message",
         `<p><strong>${buyer!.username}</strong> t'a envoyé un message au sujet de :</p>
@@ -131,6 +143,7 @@ export async function POST(req: NextRequest) {
            <strong>${listing.title}</strong><br>
            <span style="color:#64748b;">${listing.game?.name} · ${listing.price} FCFA</span>
          </p>
+         ${sellerIsFictional ? `<p style="background:#ede9fe; padding:8px; border-radius:6px; color:#5b21b6; font-size:12px;">ℹ️ Message reçu sur le vendeur virtuel <strong>${listing.seller?.username}</strong>. Réponds via le chat RobloxBoutik.</p>` : ""}
          <p style="background:#fef3c7; padding:12px; border-radius:8px; border-left:3px solid #f59e0b;">
            ${firstMessage.replace(/\n/g, "<br>")}
          </p>

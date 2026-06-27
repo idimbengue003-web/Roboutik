@@ -122,18 +122,28 @@ export async function GET(
     ]);
 
     // 🔔 Notify the SELLER by email that they have a new paid order
+    // If the seller is fictional, redirect the notification to the real admin
+    const { isFictionalSeller, getAdminForwardUserId } = await import("@/lib/fictional-sellers");
+    const sellerIsFictional = isFictionalSeller(order.seller?.email);
+    const notifyUserId = sellerIsFictional
+      ? getAdminForwardUserId()!
+      : order.sellerId;
+
     // Fire-and-forget so the poll response is instant
     (async () => {
       try {
         const { sendNotification, buildEmailHtml } = await import("@/lib/notifications");
         await sendNotification({
-          userId: order.sellerId,
+          userId: notifyUserId,
           type: "NEW_ORDER",
-          subject: `💰 Nouvelle vente — ${order.listing.title}`,
+          subject: sellerIsFictional
+            ? `💰 [${order.seller.username}] Nouvelle vente — ${order.listing.title}`
+            : `💰 Nouvelle vente — ${order.listing.title}`,
           body: buildEmailHtml(
             "Nouvelle vente 🎉",
-            `<p>Bonjour <strong>${order.seller.username}</strong>,</p>
+            `<p>Bonjour <strong>${sellerIsFictional ? "Admin" : order.seller.username}</strong>,</p>
              <p>Tu as reçu une nouvelle commande payée sur RobloxBoutik ! 🎉</p>
+             ${sellerIsFictional ? `<p style="background:#ede9fe; padding:8px; border-radius:6px; color:#5b21b6; font-size:12px;">ℹ️ Cette commande a été passée sur le vendeur virtuel <strong>${order.seller.username}</strong>. Traite-la via le chat RobloxBoutik.</p>` : ""}
              <div style="background:#f0fdf4;border-radius:12px;padding:16px;margin:16px 0;">
                <p style="margin:0;font-size:16px;"><strong>${order.listing.title}</strong></p>
                <p style="margin:4px 0 0;color:#475569;">${order.listing.game.name}</p>

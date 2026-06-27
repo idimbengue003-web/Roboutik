@@ -4,6 +4,7 @@ import { getActorById, errorResponse } from "@/lib/security";
 import { parseBody, orderMessageSchema } from "@/lib/validation";
 import { sanitizeMessage } from "@/lib/sanitize";
 import { sendNotification, buildEmailHtml } from "@/lib/notifications";
+import { isFictionalSeller, getAdminForwardUserId } from "@/lib/fictional-sellers";
 
 // GET /api/orders/[id]/messages
 export async function GET(
@@ -68,15 +69,21 @@ export async function POST(
     });
 
     // 🔔 Notify the OTHER party (buyer if seller sent, seller if buyer sent)
-    // Fire-and-forget so the API responds immediately to the sender
+    // If the recipient is a fictional seller, redirect notification to admin
     const recipient = isBuyer ? order.seller : order.buyer;
     const senderName = sender!.username;
+    const recipientIsFictional = isFictionalSeller(recipient?.email);
+    const notifyUserId = recipientIsFictional
+      ? getAdminForwardUserId()!
+      : recipient.id;
+
     if (recipient && recipient.id !== sender!.id) {
-      // Don't await — send in background for instant response
       sendNotification({
-        userId: recipient.id,
+        userId: notifyUserId,
         type: "NEW_MESSAGE",
-        subject: `💬 Nouveau message de ${senderName}`,
+        subject: recipientIsFictional
+          ? `📨 [${recipient?.username}] Message de ${senderName}`
+          : `💬 Nouveau message de ${senderName}`,
         body: buildEmailHtml(
           "Nouveau message",
           `<p><strong>${senderName}</strong> t'a envoyé un message sur ta commande :</p>
@@ -84,6 +91,7 @@ export async function POST(
              <strong>${order.listing.title}</strong><br>
              <span style="color:#64748b;">${order.listing.game?.name} · ${order.amount} FCFA</span>
            </p>
+           ${recipientIsFictional ? `<p style="background:#ede9fe; padding:8px; border-radius:6px; color:#5b21b6; font-size:12px;">ℹ️ Message reçu sur le vendeur virtuel <strong>${recipient?.username}</strong>. Réponds via le chat RobloxBoutik.</p>` : ""}
            <p style="background:#fef3c7; padding:12px; border-radius:8px; border-left:3px solid #f59e0b;">
              ${content.replace(/\n/g, "<br>")}
            </p>
