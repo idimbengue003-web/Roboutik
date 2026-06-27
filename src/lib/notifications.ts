@@ -4,7 +4,7 @@
 import { db } from "@/lib/db";
 
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
-const RESEND_FROM = process.env.RESEND_FROM_EMAIL || "Roboutik <notifications@roboutik.sn>";
+const RESEND_FROM = process.env.RESEND_FROM_EMAIL || "RobloxBoutik <notifications@robloxboutik.com>";
 const TWILIO_ACCOUNT_SID = process.env.TWILIO_ACCOUNT_SID;
 const TWILIO_AUTH_TOKEN = process.env.TWILIO_AUTH_TOKEN;
 const TWILIO_WHATSAPP_FROM = process.env.TWILIO_WHATSAPP_FROM || "whatsapp:+14155238886"; // Twilio sandbox default
