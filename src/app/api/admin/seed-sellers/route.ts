@@ -128,7 +128,7 @@ const COMMENT_POOL = [
 ];
 
 function usdToFcfa(usd: number): number {
-  return Math.round((usd * 1000 + 1000) / 100) * 100;
+  return Math.round((usd * 850 + 1000) / 100) * 100;
 }
 
 export async function POST(req: NextRequest) {

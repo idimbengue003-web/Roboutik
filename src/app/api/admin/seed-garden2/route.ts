@@ -6,7 +6,7 @@ const GAME_ID = "cmqrgl3ax001old04lrmnrori"; // Grow a Garden 2
 
 // Convert USD to FCFA: 1 USD = 1000 FCFA, + 1000F site margin, rounded to nearest 100
 function usdToFcfa(usd: number): number {
-  return Math.round((usd * 1000 + 1000) / 100) * 100;
+  return Math.round((usd * 850 + 1000) / 100) * 100;
 }
 
 // [title, priceUSD] — only items > $2 USD, no seller names
