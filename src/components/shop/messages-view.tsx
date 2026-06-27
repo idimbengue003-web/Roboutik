@@ -21,8 +21,11 @@ import { formatFCFA } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
 
 export function MessagesView() {
-  const { me, setLoginOpen, setActiveConversationId, setActiveTab, ordersVersion } =
-    useAppStore();
+  const me = useAppStore((s) => s.me);
+  const setLoginOpen = useAppStore((s) => s.setLoginOpen);
+  const setActiveConversationId = useAppStore((s) => s.setActiveConversationId);
+  const setActiveTab = useAppStore((s) => s.setActiveTab);
+  const ordersVersion = useAppStore((s) => s.ordersVersion);
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [loading, setLoading] = useState(true);
 
