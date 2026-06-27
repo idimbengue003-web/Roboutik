@@ -97,17 +97,29 @@ function AdminDashboard({ adminId }: { adminId: string }) {
     }
   }, [adminId]);
 
+  // SLA check — runs alongside stats polling to alert on unanswered messages >30 min
+  const checkSla = useCallback(async () => {
+    try {
+      await fetch(`/api/cron/check-sla?adminId=${adminId}`);
+    } catch {
+      /* noop — non-blocking */
+    }
+  }, [adminId]);
+
   useEffect(() => {
     let cancelled = false;
     (async () => {
       await loadStats();
+      checkSla(); // run SLA check on mount
     })();
     const t = setInterval(loadStats, 15000);
+    const slaInterval = setInterval(checkSla, 60000); // check SLA every 60s
     return () => {
       cancelled = true;
       clearInterval(t);
+      clearInterval(slaInterval);
     };
-  }, [loadStats]);
+  }, [loadStats, checkSla]);
 
   return (
     <div className="mx-3 sm:mx-6 py-6 pb-12 space-y-6">

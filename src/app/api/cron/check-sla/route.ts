@@ -2,11 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { sendNotification, buildEmailHtml } from "@/lib/notifications";
 import { isFictionalSeller, getAdminForwardUserId } from "@/lib/fictional-sellers";
+import { getActor, errorResponse } from "@/lib/security";
 
 /**
- * GET /api/cron/check-sla
+ * GET /api/cron/check-sla?adminId=...
  *
- * Runs every 5 minutes (via Vercel Cron).
+ * Called by the admin dashboard polling (every ~15s when admin is online).
  * Finds buyer messages that haven't been answered by the seller within 30 minutes
  * and sends an urgent email to the seller (or admin if fictional).
  *
@@ -17,12 +18,8 @@ import { isFictionalSeller, getAdminForwardUserId } from "@/lib/fictional-seller
 const SLA_MINUTES = 30;
 
 export async function GET(req: NextRequest) {
-  // Optional: protect with CRON_SECRET
-  const authHeader = req.headers.get("authorization");
-  const cronSecret = process.env.CRON_SECRET;
-  if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const { error } = await getActor(req, { requireAdmin: true });
+  if (error) return errorResponse(error);
 
   const now = new Date();
   const threshold = new Date(now.getTime() - SLA_MINUTES * 60 * 1000);

@@ -8,10 +8,6 @@
     {
       "path": "/api/cron/auto-validate",
       "schedule": "0 0 * * *"
-    },
-    {
-      "path": "/api/cron/check-sla",
-      "schedule": "*/5 * * * *"
     }
   ],
   "git": {
