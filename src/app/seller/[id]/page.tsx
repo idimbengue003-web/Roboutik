@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
+import { Button } from "@/components/ui/button";
 import { useAppStore } from "@/lib/store";
 import { formatFCFA, getListingImages } from "@/lib/types";
 import {
