@@ -451,11 +451,18 @@ function SellerListingCard({
   listing: Listing & { ratings: { stars: number }[]; orders: { id: string }[] };
   onChanged: () => void;
 }) {
-  const { me } = useAppStore();
+  const me = useAppStore((s) => s.me);
   const { toast } = useToast();
   const [busy, setBusy] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
   const stock = typeof listing.stock === "number" ? listing.stock : 1;
+
+  // Stable callbacks so EditListingDialog (memoized) doesn't re-render
+  const handleCloseEdit = useCallback(() => setShowEdit(false), []);
+  const handleSaved = useCallback(() => {
+    setShowEdit(false);
+    onChanged();
+  }, [onChanged]);
 
   async function toggleActive() {
     if (!me) return;
@@ -593,18 +600,15 @@ function SellerListingCard({
 
       <EditListingDialog
         open={showEdit}
-        onClose={() => setShowEdit(false)}
+        onClose={handleCloseEdit}
         listing={listing}
-        onSaved={() => {
-          setShowEdit(false);
-          onChanged();
-        }}
+        onSaved={handleSaved}
       />
     </div>
   );
 }
 
-function EditListingDialog({
+const EditListingDialog = memo(function EditListingDialog({
   open,
   onClose,
   listing,
@@ -615,7 +619,7 @@ function EditListingDialog({
   listing: Listing & { ratings: { stars: number }[]; orders: { id: string }[] };
   onSaved: () => void;
 }) {
-  const { me } = useAppStore();
+  const me = useAppStore((s) => s.me);
   const { toast } = useToast();
   const [title, setTitle] = useState(listing.title);
   const [description, setDescription] = useState(listing.description);
@@ -791,7 +795,7 @@ function EditListingDialog({
       </DialogContent>
     </Dialog>
   );
-}
+});
 
 const CreateListingDialog = memo(function CreateListingDialog({
   open,
@@ -998,7 +1002,7 @@ const CreateListingDialog = memo(function CreateListingDialog({
   );
 });
 
-function WithdrawDialog({
+const WithdrawDialog = memo(function WithdrawDialog({
   open,
   onClose,
   maxAmount,
@@ -1009,7 +1013,7 @@ function WithdrawDialog({
   maxAmount: number;
   onDone: () => void;
 }) {
-  const { me } = useAppStore();
+  const me = useAppStore((s) => s.me);
   const { toast } = useToast();
   const [amount, setAmount] = useState("");
   const [waveNumber, setWaveNumber] = useState("");
@@ -1199,4 +1203,4 @@ function WithdrawDialog({
       </DialogContent>
     </Dialog>
   );
-}
+});
