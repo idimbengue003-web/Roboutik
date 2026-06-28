@@ -93,15 +93,26 @@ export function PaymentView() {
       }
       const pay = await payRes.json();
 
-      // Open Wave checkout in a new tab
-      window.open(pay.checkoutUrl, "_blank", "noopener,noreferrer");
-
-      // Switch to waiting state — start polling
+      // Switch to waiting state FIRST (so polling starts immediately)
       setState({ kind: "waiting", orderId });
       toast({
-        title: "Paiement Wave ouvert 🌊",
-        description: "Une fois ton paiement validé sur Wave, on te redirige automatiquement.",
+        title: "Redirection vers Wave… 🌊",
+        description: "Tu vas être redirigé vers Wave pour payer.",
       });
+
+      // Redirect to Wave checkout.
+      // Use window.location.href (not window.open) because iOS Safari blocks
+      // window.open() when it's not in the same call stack as the user's tap
+      // (there are 2 await fetch() calls between the tap and the redirect).
+      // window.location.href works reliably on all devices including iPhone.
+      if (pay.checkoutUrl) {
+        // Small delay so the toast + waiting UI renders before navigating away
+        setTimeout(() => {
+          window.location.href = pay.checkoutUrl;
+        }, 500);
+      } else {
+        throw new Error("URL Wave manquante");
+      }
     } catch (e) {
       setState({
         kind: "error",
@@ -330,11 +341,11 @@ export function PaymentView() {
                 </div>
                 <div>
                   <h3 className="text-xl font-extrabold text-slate-900">
-                    En attente de paiement…
+                    Redirection vers Wave…
                   </h3>
                   <p className="text-sm text-slate-500 max-w-xs mt-1">
-                    Effectue ton paiement dans l'onglet Wave qui s'est ouvert.
-                    On te redirige automatiquement dès qu'on reçoit la confirmation.
+                    Tu es redirigé vers Wave pour effectuer ton paiement.
+                    On détecte ton paiement automatiquement dès qu'il est validé.
                   </p>
                 </div>
                 <div className="rounded-xl bg-slate-100 px-4 py-2 text-center">
@@ -357,6 +368,34 @@ export function PaymentView() {
                     ? " Vérification toutes les 5s..."
                     : " Vérification toutes les 10s..."}
                 </p>
+                {waitingSeconds > 5 && (
+                  <div className="rounded-xl bg-amber-50 border border-amber-200 p-3 max-w-xs">
+                    <p className="text-xs text-amber-800 mb-2">
+                      🔧 La redirection n'a pas marché ? Clique ici :
+                    </p>
+                    <Button
+                      size="sm"
+                      onClick={() => {
+                        // Re-fetch the checkout URL and redirect
+                        fetch(`/api/orders/${state.orderId}/pay`, {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ userId: me?.id }),
+                        })
+                          .then((r) => r.json())
+                          .then((d) => {
+                            if (d.checkoutUrl) {
+                              window.location.href = d.checkoutUrl;
+                            }
+                          })
+                          .catch(() => {});
+                      }}
+                      className="w-full h-9 rounded-full bg-sky-600 hover:bg-sky-700 text-white font-bold text-sm"
+                    >
+                      🌊 Ouvrir Wave manuellement
+                    </Button>
+                  </div>
+                )}
                 <Button
                   variant="ghost"
                   size="sm"
