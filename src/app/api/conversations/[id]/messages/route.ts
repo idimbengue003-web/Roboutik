@@ -75,9 +75,21 @@ export async function POST(
     // Sender must be buyer or seller
     const isBuyer = conversation.buyerId === sender!.id;
     const isSeller = conversation.sellerId === sender!.id;
-    if (!isBuyer && !isSeller) {
+
+    // Admin can reply on behalf of fictional sellers
+    const sellerIsFictional = isFictionalSeller(conversation.seller?.email);
+    const isAdminReplyingForFictional =
+      sender!.isAdmin && sellerIsFictional && !isBuyer;
+
+    if (!isBuyer && !isSeller && !isAdminReplyingForFictional) {
       return NextResponse.json({ error: "Accès refusé" }, { status: 403 });
     }
+
+    // If admin is replying for a fictional seller, the message senderId
+    // is the fictional seller's ID (so the buyer sees it as from the seller)
+    const effectiveSenderId = isAdminReplyingForFictional
+      ? conversation.sellerId
+      : sender!.id;
 
     // ANTI-FRAUD: rate limit - max 20 messages per minute per conversation
     const recentMessages = await db.conversationMessage.count({
@@ -93,11 +105,11 @@ export async function POST(
       );
     }
 
-    // Save message
+    // Save message — use effectiveSenderId (fictional seller ID if admin is replying)
     const message = await db.conversationMessage.create({
       data: {
         conversationId: id,
-        senderId: sender!.id,
+        senderId: effectiveSenderId,
         content,
         isAuto: false,
       },
@@ -109,13 +121,18 @@ export async function POST(
     });
 
     // Notify the OTHER party (not the sender) — fire-and-forget for instant response
-    // If the recipient is a fictional seller, redirect notification to admin
-    const recipient = isBuyer ? conversation.seller : conversation.buyer;
-    const senderName = sender!.username;
-    const recipientIsFictional = isFictionalSeller(recipient?.email);
+    // If admin is replying for a fictional seller, notify the BUYER
+    // If the recipient is a fictional seller (buyer sent), redirect to admin
+    const recipient = isAdminReplyingForFictional
+      ? conversation.buyer
+      : isBuyer ? conversation.seller : conversation.buyer;
+    const senderName = isAdminReplyingForFictional
+      ? conversation.seller?.username ?? "Vendeur"
+      : sender!.username;
+    const recipientIsFictional = !isAdminReplyingForFictional && isFictionalSeller(recipient?.email);
     const notifyUserId = recipientIsFictional
       ? getAdminForwardUserId()!
-      : recipient.id;
+      : recipient?.id;
 
     sendNotification({
       userId: notifyUserId,

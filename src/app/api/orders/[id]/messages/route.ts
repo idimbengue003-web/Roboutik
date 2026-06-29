@@ -49,15 +49,26 @@ export async function POST(
     // Sender must be buyer or seller
     const isBuyer = order.buyerId === sender!.id;
     const isSeller = order.sellerId === sender!.id;
-    if (!isBuyer && !isSeller) {
+
+    // Admin can reply on behalf of fictional sellers
+    const sellerIsFictional = isFictionalSeller(order.seller?.email);
+    const isAdminReplyingForFictional =
+      sender!.isAdmin && sellerIsFictional && !isBuyer;
+
+    if (!isBuyer && !isSeller && !isAdminReplyingForFictional) {
       return NextResponse.json({ error: "Accès refusé" }, { status: 403 });
     }
 
-    // Save message — no auto-response, no status change
+    // If admin is replying for a fictional seller, use the seller's ID as sender
+    const effectiveSenderId = isAdminReplyingForFictional
+      ? order.sellerId
+      : sender!.id;
+
+    // Save message
     const savedMessage = await db.message.create({
       data: {
         orderId: id,
-        senderId: sender!.id,
+        senderId: effectiveSenderId,
         content,
         isAuto: false,
       },
@@ -69,15 +80,20 @@ export async function POST(
     });
 
     // 🔔 Notify the OTHER party (buyer if seller sent, seller if buyer sent)
-    // If the recipient is a fictional seller, redirect notification to admin
-    const recipient = isBuyer ? order.seller : order.buyer;
-    const senderName = sender!.username;
-    const recipientIsFictional = isFictionalSeller(recipient?.email);
+    // If admin is replying for a fictional seller, notify the BUYER
+    // If the recipient is a fictional seller (buyer sent), redirect to admin
+    const recipient = isAdminReplyingForFictional
+      ? order.buyer  // admin replied as seller → notify buyer
+      : isBuyer ? order.seller : order.buyer;
+    const senderName = isAdminReplyingForFictional
+      ? order.seller?.username ?? "Vendeur"
+      : sender!.username;
+    const recipientIsFictional = !isAdminReplyingForFictional && isFictionalSeller(recipient?.email);
     const notifyUserId = recipientIsFictional
       ? getAdminForwardUserId()!
-      : recipient.id;
+      : recipient?.id;
 
-    if (recipient && recipient.id !== sender!.id) {
+    if (recipient && recipient.id !== effectiveSenderId) {
       sendNotification({
         userId: notifyUserId,
         type: "NEW_MESSAGE",
