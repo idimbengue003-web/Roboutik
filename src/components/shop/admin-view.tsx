@@ -29,12 +29,15 @@ import {
   ArrowDownToLine,
   Zap,
   Upload,
+  Pencil,
 } from "lucide-react";
 import { useEffect, useState, useCallback } from "react";
 import type { AuditLog, User, Withdrawal } from "@/lib/types";
 import { formatFCFA } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
 import { CATEGORY_ICON } from "@/lib/support-bot";
+import { Switch } from "@/components/ui/switch";
+import { Textarea } from "@/components/ui/textarea";
 
 type AdminStats = {
   users: { total: number; sellers: number; banned: number };
@@ -84,7 +87,7 @@ export function AdminView() {
 
 function AdminDashboard({ adminId }: { adminId: string }) {
   const [tab, setTab] = useState<
-    "overview" | "users" | "orders" | "categories" | "appearance" | "withdrawals" | "tickets" | "audit" | "import"
+    "overview" | "users" | "orders" | "categories" | "listings" | "appearance" | "withdrawals" | "tickets" | "audit" | "import"
   >("overview");
   const [stats, setStats] = useState<AdminStats | null>(null);
 
@@ -144,6 +147,7 @@ function AdminDashboard({ adminId }: { adminId: string }) {
           { id: "users", label: "Utilisateurs", icon: Users },
           { id: "orders", label: "Commandes", icon: Package },
           { id: "categories", label: "Catégories", icon: CheckCircle2 },
+          { id: "listings", label: "Annonces", icon: Package },
           { id: "import", label: "Import rapide", icon: Zap },
           { id: "appearance", label: "Apparence", icon: Shield },
           { id: "withdrawals", label: "Retraits", icon: ArrowDownToLine },
@@ -175,6 +179,7 @@ function AdminDashboard({ adminId }: { adminId: string }) {
       {tab === "users" && <UsersTab adminId={adminId} />}
       {tab === "orders" && <OrdersTab adminId={adminId} />}
       {tab === "categories" && <CategoriesTab adminId={adminId} />}
+      {tab === "listings" && <ListingsTab adminId={adminId} />}
       {tab === "import" && <ImportTab adminId={adminId} />}
       {tab === "appearance" && <AppearanceTab adminId={adminId} />}
       {tab === "withdrawals" && <WithdrawalsTab adminId={adminId} />}
@@ -2368,5 +2373,340 @@ function ImportTab({ adminId }: { adminId: string }) {
         )}
       </div>
     </div>
+  );
+}
+
+/* ────────────────────────────────────────────────────────────────────── */
+/* Listings tab — admin can view, edit, delete ANY listing               */
+/* ────────────────────────────────────────────────────────────────────── */
+
+function ListingsTab({ adminId }: { adminId: string }) {
+  const [listings, setListings] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [q, setQ] = useState("");
+  const [editTarget, setEditTarget] = useState<any | null>(null);
+  const { toast } = useToast();
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const r = await fetch(`/api/listings?all=true&sort=recent`);
+      if (!r.ok) return;
+      const d = await r.json();
+      setListings(d.listings ?? []);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  async function handleDelete(l: any) {
+    if (!confirm(`Supprimer "${l.title}" ?\n\nCette action est définitive.`)) return;
+    try {
+      const r = await fetch(`/api/listings/${l.id}?userId=${adminId}`, {
+        method: "DELETE",
+      });
+      if (!r.ok) {
+        const e = await r.json().catch(() => ({}));
+        throw new Error(e.error ?? "Échec");
+      }
+      toast({ title: "Annonce supprimée 🗑️" });
+      load();
+    } catch (e) {
+      toast({
+        title: "Erreur",
+        description: e instanceof Error ? e.message : "?",
+        variant: "destructive",
+      });
+    }
+  }
+
+  async function handleToggleActive(l: any) {
+    try {
+      const r = await fetch(`/api/listings/${l.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: adminId, active: !l.active }),
+      });
+      if (!r.ok) throw new Error("Échec");
+      toast({
+        title: l.active ? "Annonce masquée" : "Annonce activée ✅",
+      });
+      load();
+    } catch (e) {
+      toast({
+        title: "Erreur",
+        description: e instanceof Error ? e.message : "?",
+        variant: "destructive",
+      });
+    }
+  }
+
+  const filtered = listings.filter((l) => {
+    if (!q) return true;
+    const ql = q.toLowerCase();
+    return (
+      l.title?.toLowerCase().includes(ql) ||
+      l.seller?.username?.toLowerCase().includes(ql) ||
+      l.game?.name?.toLowerCase().includes(ql)
+    );
+  });
+
+  return (
+    <div className="space-y-3">
+      <div className="rounded-2xl border bg-white p-3 flex flex-wrap items-center gap-2">
+        <div className="relative flex-1 min-w-[200px]">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-slate-400" />
+          <Input
+            placeholder="Rechercher par titre, vendeur ou jeu…"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            className="h-9 pl-9 rounded-full"
+          />
+        </div>
+        <span className="text-xs text-slate-500">
+          {filtered.length} annonce(s)
+        </span>
+      </div>
+
+      {loading ? (
+        <div className="text-center text-slate-500 py-8">Chargement…</div>
+      ) : filtered.length === 0 ? (
+        <div className="rounded-2xl border bg-white p-8 text-center text-slate-500">
+          Aucune annonce.
+        </div>
+      ) : (
+        <div className="rounded-2xl border bg-white divide-y">
+          {filtered.slice(0, 200).map((l) => (
+            <div key={l.id} className="flex items-center gap-3 p-3">
+              <div className="grid size-10 place-items-center rounded-xl bg-slate-100 text-xl shrink-0 overflow-hidden">
+                {l.images ? (
+                  <img
+                    src={JSON.parse(l.images)[0]}
+                    alt={l.title}
+                    className="size-full object-cover"
+                  />
+                ) : (
+                  "🎮"
+                )}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="font-semibold text-slate-900 line-clamp-1">
+                  {l.title}
+                </p>
+                <p className="text-xs text-slate-500">
+                  {l.game?.name ?? "—"} · {formatFCFA(l.price)} ·{" "}
+                  <span className="text-fuchsia-600 font-medium">
+                    {l.seller?.username ?? "—"}
+                  </span>
+                  {!l.active && (
+                    <span className="ml-1 text-rose-500 font-bold">(inactive)</span>
+                  )}
+                </p>
+              </div>
+              <div className="shrink-0 flex gap-1">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => handleToggleActive(l)}
+                  className="h-8 text-xs rounded-full"
+                >
+                  {l.active ? "Masquer" : "Activer"}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setEditTarget(l)}
+                  className="h-8 text-xs rounded-full text-fuchsia-600 border-fuchsia-300 hover:bg-fuchsia-50"
+                >
+                  <Pencil className="size-3.5" />
+                  Modifier
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => handleDelete(l)}
+                  className="h-8 text-xs rounded-full text-rose-600 border-rose-300 hover:bg-rose-50"
+                >
+                  <X className="size-3.5" />
+                </Button>
+              </div>
+            </div>
+          ))}
+          {filtered.length > 200 && (
+            <div className="p-3 text-center text-xs text-slate-400">
+              … et {filtered.length - 200} de plus. Affine ta recherche.
+            </div>
+          )}
+        </div>
+      )}
+
+      <AdminEditListingDialog
+        listing={editTarget}
+        adminId={adminId}
+        onClose={() => setEditTarget(null)}
+        onSaved={() => {
+          setEditTarget(null);
+          load();
+        }}
+      />
+    </div>
+  );
+}
+
+function AdminEditListingDialog({
+  listing,
+  adminId,
+  onClose,
+  onSaved,
+}: {
+  listing: any | null;
+  adminId: string;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const { toast } = useToast();
+  const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
+  const [sellerNetPrice, setSellerNetPrice] = useState("");
+  const [stock, setStock] = useState("1");
+  const [active, setActive] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (listing) {
+      setTitle(listing.title ?? "");
+      setDescription(listing.description ?? "");
+      setSellerNetPrice(String(listing.sellerNetPrice ?? listing.price ?? 0));
+      setStock(String(listing.stock ?? 1));
+      setActive(listing.active ?? true);
+    }
+  }, [listing]);
+
+  async function submit() {
+    if (!listing) return;
+    if (!title.trim()) {
+      toast({ title: "Titre requis", variant: "destructive" });
+      return;
+    }
+    setSaving(true);
+    try {
+      const body: Record<string, unknown> = {
+        userId: adminId,
+        title: title.trim(),
+        description: description.trim(),
+        stock: Number(stock) || 0,
+        active,
+      };
+      const net = Number(sellerNetPrice);
+      if (net > 0) {
+        body.sellerNetPrice = net;
+      }
+
+      const r = await fetch(`/api/listings/${listing.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!r.ok) {
+        const e = await r.json().catch(() => ({}));
+        throw new Error(e.error ?? "Échec");
+      }
+      toast({ title: "Annonce mise à jour ✅" });
+      onSaved();
+    } catch (e) {
+      toast({
+        title: "Erreur",
+        description: e instanceof Error ? e.message : "?",
+        variant: "destructive",
+      });
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Dialog open={!!listing} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="sm:max-w-md rounded-3xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Modifier l'annonce</DialogTitle>
+          <DialogDescription>
+            Vendeur : <strong>{listing?.seller?.username ?? "—"}</strong> ·{" "}
+            {listing?.game?.name ?? "—"}
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-3">
+          <div>
+            <Label className="text-sm font-semibold">Titre</Label>
+            <Input
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              className="mt-1 rounded-xl"
+              maxLength={80}
+            />
+          </div>
+          <div>
+            <Label className="text-sm font-semibold">Description</Label>
+            <textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              className="w-full min-h-[80px] rounded-xl border bg-background p-2 text-sm mt-1"
+              maxLength={500}
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label className="text-sm font-semibold">Prix net (FCFA)</Label>
+              <Input
+                type="number"
+                value={sellerNetPrice}
+                onChange={(e) => setSellerNetPrice(e.target.value)}
+                className="mt-1 rounded-xl"
+                min={100}
+              />
+              <p className="text-[10px] text-slate-400 mt-0.5">
+                Affiché : {sellerNetPrice ? formatFCFA(Math.round(Number(sellerNetPrice) * 1.16)) : "—"}
+              </p>
+            </div>
+            <div>
+              <Label className="text-sm font-semibold">Stock</Label>
+              <Input
+                type="number"
+                value={stock}
+                onChange={(e) => setStock(e.target.value)}
+                className="mt-1 rounded-xl"
+                min={0}
+              />
+            </div>
+          </div>
+          <div className="flex items-center justify-between rounded-xl border p-3">
+            <div>
+              <p className="text-sm font-semibold text-slate-900">
+                Annonce visible
+              </p>
+              <p className="text-[11px] text-slate-500">
+                Désactive pour masquer temporairement.
+              </p>
+            </div>
+            <Switch checked={active} onCheckedChange={setActive} />
+          </div>
+        </div>
+        <DialogFooter className="gap-2">
+          <Button variant="ghost" onClick={onClose}>
+            Annuler
+          </Button>
+          <Button
+            disabled={saving}
+            onClick={submit}
+            className="bg-gradient-to-r from-fuchsia-600 to-orange-500 text-white font-bold rounded-full"
+          >
+            {saving ? "Enregistrement…" : "Enregistrer"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
