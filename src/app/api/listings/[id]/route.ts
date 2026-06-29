@@ -47,7 +47,10 @@ export async function PATCH(
     if (!listing) {
       return NextResponse.json({ error: "Annonce introuvable" }, { status: 404 });
     }
-    if (listing.sellerId !== userId) {
+    // Check ownership OR admin override
+    const requestingUser = await db.user.findUnique({ where: { id: userId }, select: { isAdmin: true } });
+    const isAdmin = requestingUser?.isAdmin === true;
+    if (listing.sellerId !== userId && !isAdmin) {
       return NextResponse.json({ error: "Pas ton annonce" }, { status: 403 });
     }
 
@@ -153,7 +156,10 @@ export async function DELETE(
     if (!listing) {
       return NextResponse.json({ error: "Annonce introuvable" }, { status: 404 });
     }
-    if (listing.sellerId !== userId) {
+    // Check ownership OR admin override
+    const requestingUser = await db.user.findUnique({ where: { id: userId }, select: { isAdmin: true } });
+    const isAdmin = requestingUser?.isAdmin === true;
+    if (listing.sellerId !== userId && !isAdmin) {
       return NextResponse.json({ error: "Pas ton annonce" }, { status: 403 });
     }
 

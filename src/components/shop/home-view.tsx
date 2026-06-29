@@ -20,7 +20,7 @@ export function HomeView() {
         const r = await fetch("/api/listings?all=true&sort=recent");
         if (!r.ok) return;
         const d = await r.json();
-        setFeatured((d.listings ?? []).slice(0, 4));
+        setFeatured((d.listings ?? []).slice(0, 8));
       } catch {
         /* noop */
       }
@@ -161,7 +161,7 @@ export function HomeView() {
           <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 mb-4">
             🔥 Annonces du moment
           </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8 gap-4">
             {featured.map((l) => (
               <ListingMiniCard
                 key={l.id}
