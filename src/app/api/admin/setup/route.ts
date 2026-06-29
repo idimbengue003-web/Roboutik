@@ -33,7 +33,6 @@ export async function POST(req: NextRequest) {
     `;
     results.push("SiteConfig table OK");
 
-    // Seed default row if empty
     await db.$executeRaw`
       INSERT INTO "roboutik"."SiteConfig" ("id")
       VALUES ('default')
@@ -41,9 +40,18 @@ export async function POST(req: NextRequest) {
     `;
     results.push("SiteConfig default row OK");
   } catch (e) {
-    results.push(
-      `SiteConfig error: ${e instanceof Error ? e.message : "?"}`
-    );
+    results.push(`SiteConfig error: ${e instanceof Error ? e.message : "?"}`);
+  }
+
+  // 2. Add lastActiveAt column to User table if missing
+  try {
+    await db.$executeRaw`
+      ALTER TABLE "roboutik"."User"
+      ADD COLUMN IF NOT EXISTS "lastActiveAt" TIMESTAMP(3) DEFAULT CURRENT_TIMESTAMP;
+    `;
+    results.push("User.lastActiveAt column OK");
+  } catch (e) {
+    results.push(`User.lastActiveAt error: ${e instanceof Error ? e.message : "?"}`);
   }
 
   return NextResponse.json({

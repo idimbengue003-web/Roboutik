@@ -31,6 +31,7 @@ export async function GET(
       isSeller: true,
       isBanned: true,
       createdAt: true,
+      lastActiveAt: true,
     },
   });
 
@@ -99,8 +100,25 @@ export async function GET(
     orderBy: { createdAt: "desc" },
   });
 
+  // Determine online status: active within last 2 minutes = online
+  const now = new Date();
+  const twoMinutesAgo = new Date(now.getTime() - 2 * 60 * 1000);
+  const isOnline = seller.lastActiveAt
+    ? new Date(seller.lastActiveAt) > twoMinutesAgo
+    : false;
+
+  // Format last seen for display
+  let lastSeen: string | null = null;
+  if (seller.lastActiveAt) {
+    const diff = now.getTime() - new Date(seller.lastActiveAt).getTime();
+    if (diff < 2 * 60 * 1000) lastSeen = "En ligne";
+    else if (diff < 60 * 60 * 1000) lastSeen = `Vu il y a ${Math.floor(diff / 60000)} min`;
+    else if (diff < 24 * 60 * 60 * 1000) lastSeen = `Vu il y a ${Math.floor(diff / 3600000)} h`;
+    else lastSeen = `Vu ${new Date(seller.lastActiveAt).toLocaleDateString("fr-FR")}`;
+  }
+
   return NextResponse.json({
-    seller,
+    seller: { ...seller, isOnline, lastSeen },
     stats: {
       totalSales,
       totalGross,

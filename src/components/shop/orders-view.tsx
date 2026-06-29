@@ -8,8 +8,13 @@ import { formatFCFA, STATUS_LABEL, STATUS_COLOR, formatCountdown } from "@/lib/t
 import { MessageCircle, Package, RefreshCw, ShoppingBag, Zap, Star, Clock, CheckCircle2 } from "lucide-react";
 
 export function OrdersView() {
-  const { me, ordersVersion, setActiveOrderId, setActiveTab, bumpOrders, setRateOrderId } =
-    useAppStore();
+  const me = useAppStore((s) => s.me);
+  const ordersVersion = useAppStore((s) => s.ordersVersion);
+  const setActiveOrderId = useAppStore((s) => s.setActiveOrderId);
+  const setActiveTab = useAppStore((s) => s.setActiveTab);
+  const bumpOrders = useAppStore((s) => s.bumpOrders);
+  const setRateOrderId = useAppStore((s) => s.setRateOrderId);
+  const setPendingListingId = useAppStore((s) => s.setPendingListingId);
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [now, setNow] = useState(Date.now());
@@ -269,6 +274,43 @@ function OrderCard({
           )}
 
           <div className="mt-2 flex items-center gap-2 flex-wrap">
+            {/* PENDING_PAYMENT: show Pay + Cancel buttons for the buyer */}
+            {order.status === "PENDING_PAYMENT" && isBuyer && (
+              <>
+                <Button
+                  size="sm"
+                  onClick={() => {
+                    // Re-trigger payment flow
+                    if (order.listingId) {
+                      setPendingListingId(order.listingId);
+                    }
+                  }}
+                  className="h-8 text-xs rounded-full bg-gradient-to-r from-sky-500 to-cyan-500 text-white font-bold px-4"
+                >
+                  <Zap className="size-3.5" />
+                  Payer maintenant
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={async () => {
+                    if (!confirm("Annuler cette commande ? Le paiement sera annulé.")) return;
+                    try {
+                      const r = await fetch(`/api/orders/${order.id}/cancel`, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ userId: currentUserId, reason: "Annulé par l'acheteur" }),
+                      });
+                      if (!r.ok) throw new Error("Échec");
+                      bumpOrders();
+                    } catch {}
+                  }}
+                  className="h-8 text-xs rounded-full text-rose-600 border-rose-300 hover:bg-rose-50 px-3"
+                >
+                  Annuler
+                </Button>
+              </>
+            )}
             <Button
               size="sm"
               variant="ghost"

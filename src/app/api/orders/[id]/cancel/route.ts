@@ -49,11 +49,22 @@ export async function POST(
       );
     }
 
-    // Only the seller of this order can cancel it
-    if (order.sellerId !== seller!.id) {
+    // The seller OR the buyer (if PENDING_PAYMENT) can cancel
+    const isSeller = order.sellerId === seller!.id;
+    const isBuyer = order.buyerId === seller!.id;
+    if (!isSeller && !isBuyer) {
       return NextResponse.json(
-        { error: "Seul le vendeur peut annuler cette commande" },
+        { error: "Tu n'es pas impliqué dans cette commande" },
         { status: 403 }
+      );
+    }
+
+    // Buyer can only cancel PENDING_PAYMENT orders
+    // Seller can cancel PAID or DELIVERED orders
+    if (isBuyer && !isSeller && order.status !== "PENDING_PAYMENT") {
+      return NextResponse.json(
+        { error: "Tu ne peux annuler qu'une commande non payée" },
+        { status: 400 }
       );
     }
 
@@ -69,12 +80,6 @@ export async function POST(
     if (order.status === "CANCELLED") {
       return NextResponse.json(
         { error: "Commande déjà annulée" },
-        { status: 400 }
-      );
-    }
-    if (order.status === "PENDING_PAYMENT") {
-      return NextResponse.json(
-        { error: "Cette commande n'a pas encore été payée." },
         { status: 400 }
       );
     }

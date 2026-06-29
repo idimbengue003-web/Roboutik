@@ -23,6 +23,7 @@ import { CookieBanner } from "@/components/shop/cookie-banner";
 import { AgeGate } from "@/components/shop/age-gate";
 import { NotificationPermission } from "@/components/shop/notification-permission";
 import { useMessageNotifications } from "@/lib/use-message-notifications";
+import { useHeartbeat } from "@/lib/use-heartbeat";
 import { Loader2 } from "lucide-react";
 
 export default function Home() {
@@ -33,6 +34,8 @@ export default function Home() {
 
   // 🔔 Poll all conversations + orders every 8s and fire native notifications
   useMessageNotifications();
+  // 💓 Heartbeat every 30s for online/offline status
+  useHeartbeat();
 
   // Load games on mount (no init call in production — games are already seeded)
   useEffect(() => {

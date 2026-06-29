@@ -27,6 +27,7 @@ model User {
   bannedAt   DateTime?
   banReason  String?
   balance    Int      @default(0)
+  lastActiveAt DateTime? @default(now())
   // 2FA: 6-digit code emailed to admin for sensitive actions (ban, withdrawals)
   twoFactorCode           String?
   twoFactorCodeExpiresAt  DateTime?

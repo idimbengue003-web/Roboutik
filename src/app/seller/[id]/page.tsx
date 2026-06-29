@@ -121,8 +121,17 @@ export default function SellerProfilePage({
       {/* Profile header */}
       <div className="rounded-3xl bg-gradient-to-br from-fuchsia-600 via-fuchsia-500 to-orange-500 p-6 text-white shadow-lg">
         <div className="flex items-start gap-4">
-          <div className="grid size-20 place-items-center rounded-2xl bg-white/20 backdrop-blur text-4xl shrink-0">
-            {seller.avatar ?? "🛒"}
+          <div className="relative shrink-0">
+            <div className="grid size-20 place-items-center rounded-2xl bg-white/20 backdrop-blur text-4xl">
+              {seller.avatar ?? "🛒"}
+            </div>
+            {/* Online indicator */}
+            <div
+              className={`absolute -bottom-1 -right-1 size-5 rounded-full border-2 border-fuchsia-600 ${
+                seller.isOnline ? "bg-emerald-400" : "bg-slate-400"
+              }`}
+              title={seller.lastSeen ?? "Hors ligne"}
+            />
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
@@ -135,6 +144,14 @@ export default function SellerProfilePage({
                   Vérifié
                 </span>
               )}
+              {/* Online status text */}
+              <span className={`text-[10px] font-bold rounded-full px-2 py-0.5 ${
+                seller.isOnline
+                  ? "bg-emerald-400/30 text-emerald-50"
+                  : "bg-white/15 text-white/70"
+              }`}>
+                {seller.isOnline ? "● En ligne" : seller.lastSeen ?? "Hors ligne"}
+              </span>
               {isOwn && (
                 <span className="text-[10px] font-bold uppercase bg-white/25 backdrop-blur rounded-full px-2 py-0.5">
                   Ton profil
