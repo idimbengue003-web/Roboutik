@@ -8,7 +8,7 @@ datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
   // Use a dedicated schema to avoid collisions with other projects sharing the same Neon DB
-  schemas  = ["roboutik"]
+  schemas  = ["public"]
 }
 
 // All models live in the "roboutik" schema (separate from "public")
@@ -49,7 +49,7 @@ model User {
   convsAsSeller  Conversation[] @relation("ConvSeller")
   convMessages   ConversationMessage[]
 
-  @@schema("roboutik")
+  @@schema("public")
 }
 
 model Game {
@@ -64,7 +64,7 @@ model Game {
 
   listings Listing[]
 
-  @@schema("roboutik")
+  @@schema("public")
 }
 
 model Listing {
@@ -88,7 +88,7 @@ model Listing {
   ratings Rating[]
   conversations Conversation[]
 
-  @@schema("roboutik")
+  @@schema("public")
 }
 
 model Order {
@@ -112,7 +112,7 @@ model Order {
   messages Message[]
   rating   Rating?
 
-  @@schema("roboutik")
+  @@schema("public")
 }
 
 model Message {
@@ -125,7 +125,7 @@ model Message {
   isAuto    Boolean  @default(false)
   createdAt DateTime @default(now())
 
-  @@schema("roboutik")
+  @@schema("public")
 }
 
 model Rating {
@@ -142,7 +142,7 @@ model Rating {
   comment    String?
   createdAt  DateTime @default(now())
 
-  @@schema("roboutik")
+  @@schema("public")
 }
 
 model Withdrawal {
@@ -155,7 +155,7 @@ model Withdrawal {
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
-  @@schema("roboutik")
+  @@schema("public")
 }
 
 model SupportTicket {
@@ -173,7 +173,7 @@ model SupportTicket {
 
   messages    TicketMessage[]
 
-  @@schema("roboutik")
+  @@schema("public")
 }
 
 model TicketMessage {
@@ -188,7 +188,7 @@ model TicketMessage {
   isAuto     Boolean  @default(false)
   createdAt  DateTime @default(now())
 
-  @@schema("roboutik")
+  @@schema("public")
 }
 
 model AuditLog {
@@ -201,7 +201,7 @@ model AuditLog {
   metadata   String?  // JSON string with extra context
   createdAt  DateTime @default(now())
 
-  @@schema("roboutik")
+  @@schema("public")
 }
 
 // Pre-sale conversation between a buyer and a seller about a specific listing
@@ -219,7 +219,7 @@ model Conversation {
   messages    ConversationMessage[]
 
   @@unique([listingId, buyerId])
-  @@schema("roboutik")
+  @@schema("public")
 }
 
 model ConversationMessage {
@@ -232,7 +232,7 @@ model ConversationMessage {
   isAuto         Boolean  @default(false)
   createdAt      DateTime @default(now())
 
-  @@schema("roboutik")
+  @@schema("public")
 }
 
 // Log of notifications sent (avoid double-sending, audit trail)
@@ -256,7 +256,7 @@ model NotificationLog {
   createdAt  DateTime @default(now())
 
   @@index([recipientUserId, createdAt])
-  @@schema("roboutik")
+  @@schema("public")
 }
 
 // Self-hosted error tracking (Sentry-like)
@@ -275,7 +275,7 @@ model ErrorLog {
 
   @@index([severity, createdAt])
   @@index([resolved, createdAt])
-  @@schema("roboutik")
+  @@schema("public")
 }
 
 // Site-wide configuration: theme colors, hero text, etc.
@@ -292,5 +292,5 @@ model SiteConfig {
   heroSubtitle String   @default("Paiement Wave · Livraison rapide · Paiement sécurisé")
   updatedAt    DateTime @updatedAt
 
-  @@schema("roboutik")
+  @@schema("public")
 }
