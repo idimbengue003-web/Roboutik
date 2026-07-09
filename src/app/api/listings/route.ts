@@ -48,10 +48,11 @@ export async function GET(req: NextRequest) {
     where,
     include: {
       game: true,
-      seller: true,
-      ratings: true,
+      seller: { select: { id: true, username: true, avatar: true, isVerified: true } },
+      ratings: { select: { stars: true } },
     },
     orderBy,
+    take: 100, // Limit to 100 results to save bandwidth
   });
 
   return NextResponse.json({ listings });

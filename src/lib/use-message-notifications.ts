@@ -96,9 +96,9 @@ export function useMessageNotifications() {
       }
     }
 
-    // Run immediately, then every 8 seconds
+    // Run immediately, then every 30 seconds (was 8s — reduced for bandwidth)
     checkForNewMessages();
-    const interval = setInterval(checkForNewMessages, 8000);
+    const interval = setInterval(checkForNewMessages, 30000);
 
     return () => {
       cancelled = true;
@@ -106,3 +106,4 @@ export function useMessageNotifications() {
     };
   }, [me?.id]);
 }
+
