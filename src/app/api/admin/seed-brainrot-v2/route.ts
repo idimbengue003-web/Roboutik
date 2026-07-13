@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getActor, errorResponse } from "@/lib/security";
 
-const GAME_ID = "cmqkfdrgi0005i604gduz9elh"; // Steal a Brainrot
+const GAME_ID = "cmrj9vriv00wxju04vrjd2qz9"; // Steal a Brainrot
 
 // Convert USD to FCFA: 1 USD = 850 FCFA (user's rate), + 1000F site margin, rounded to 100
 function usdToFcfa(usd: number): number {

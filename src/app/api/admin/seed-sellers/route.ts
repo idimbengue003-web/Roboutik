@@ -31,22 +31,22 @@ type SellerSpec = {
 };
 
 const GAME_IDS = {
-  brainrot: "cmqkfdrgi0005i604gduz9elh", // Steal a Brainrot
-  bloxFruits: "cmqkfdrgu0006i604tyyytgnl",
-  brookhaven: "cmqkfdrh00007i604tgz5p3si",
-  adoptMe: "cmqkfdrhc0008i604j1hwy72w",
-  towerDefense: "cmqkfdrhj0009i604g1ukhq7k",
-  garden2: "cmqrgl3ax001old04lrmnrori",
-  petSim: "cmqkfdrhp000ai604h3381mky",
-  growGarden: "cmqpeog320007le04vg0pt9cj",
-  doors: "cmqpeog3i0008le04ol3fqdou",
-  beeSwarm: "cmqpeog3v0009le045s9m4d6q",
-  murder: "cmqpeog47000ale04nfp5mal2",
-  anime: "cmqpeog4i000ble04mqbw3plt",
-  jailbreak: "cmqpeog4x000cle04o6hpa217",
-  bladeBall: "cmqpeog5d000dle04q36pfeop",
-  arsenal: "cmqpeog5o000ele04ppo0b4bs",
-  ragdoll: "cmqpeog60000fle04esftrbcr",
+  brainrot: "cmrj9vriv00wxju04vrjd2qz9", // Steal a Brainrot
+  bloxFruits: "cmrj9vryb00wyju04tnu0gvwk",
+  brookhaven: "cmrj9vs7y00wzju04otdidkyi",
+  adoptMe: "cmrj9vsjj00x0ju04rgxrx18p",
+  towerDefense: "cmrj9vst600x1ju0472prnaxt",
+  garden2: "cmrj9vt2u00x2ju04v7namer0",
+  petSim: "cmrj9vtch00x3ju04hy095mn4",
+  growGarden: "cmrj9vtch00x3ju04hy095mn4",
+  doors: "cmrj9vtm500x4ju04dysr1o60",
+  beeSwarm: "cmrj9vtvr00x5ju04cd9dl32s",
+  murder: "cmrj9vu5f00x6ju04o9vm8t4z",
+  anime: "cmrj9vuf200x7ju045fb88n0i",
+  jailbreak: "cmrj9vuoo00x8ju042rmmmjyi",
+  bladeBall: "cmrj9vuyb00x9ju04qit3at16",
+  arsenal: "cmrj9vv7y00xaju044dax17xg",
+  ragdoll: "cmrj9vvhl00xbju04tloc85xp",
 };
 
 const SELLERS: SellerSpec[] = [

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getActor, errorResponse } from "@/lib/security";
 
-const GAME_ID = "cmqrgl3ax001old04lrmnrori"; // Grow a Garden 2
+const GAME_ID = "cmrj9vt2u00x2ju04v7namer0"; // Grow a Garden 2
 
 // Convert USD to FCFA: 1 USD = 1000 FCFA, + 1000F site margin, rounded to nearest 100
 function usdToFcfa(usd: number): number {

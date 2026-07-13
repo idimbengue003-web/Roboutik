@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getActor, errorResponse } from "@/lib/security";
 
-const GAME_ID = "cmqkfdrhj0009i604g1ukhq7k"; // Tower Defense Simulator
+const GAME_ID = "cmrj9vst600x1ju0472prnaxt"; // Tower Defense Simulator
 
 // Convert USD to FCFA: 1 USD = 1000 FCFA, + 1000F site margin, rounded to nearest 100
 function usdToFcfa(usd: number): number {

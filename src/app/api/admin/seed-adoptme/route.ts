@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getActor, errorResponse } from "@/lib/security";
 
-const GAME_ID = "cmqkfdrhc0008i604j1hwy72w"; // Adopt Me!
+const GAME_ID = "cmrj9vsjj00x0ju04rgxrx18p"; // Adopt Me!
 
 // [title, priceFcfa, rarity]
 const listings: [string, number, string][] = [

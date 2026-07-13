@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getActor, errorResponse } from "@/lib/security";
 
-const GAME_ID = "cmqkfdrgi0005i604gduz9elh"; // Steal a Brainrot
+const GAME_ID = "cmrj9vriv00wxju04vrjd2qz9"; // Steal a Brainrot
 
 const listings: [string, number, string][] = [
   ["Esok sekolah", 500, "30M/s"],

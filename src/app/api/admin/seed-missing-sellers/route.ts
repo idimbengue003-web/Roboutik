@@ -3,7 +3,7 @@ import { db } from "@/lib/db";
 import { getActor, errorResponse } from "@/lib/security";
 
 const GAME_IDS = {
-  brainrot: "cmqkfdrgi0005i604gduz9elh",
+  brainrot: "cmrj9vriv00wxju04vrjd2qz9",
   bloxFruits: "cmqkfdrgu0006i604tyyytgnl",
   brookhaven: "cmqkfdrh00007i604tgz5p3si",
   adoptMe: "cmqkfdrhc0008i604j1hwy72w",
@@ -12,12 +12,12 @@ const GAME_IDS = {
   petSim: "cmqkfdrhp000ai604h3381mky",
   growGarden: "cmqpeog320007le04vg0pt9cj",
   doors: "cmqpeog3i0008le04ol3fqdou",
-  beeSwarm: "cmqpeog3v0009le045s9m4d6q",
-  murder: "cmqpeog47000ale04nfp5mal2",
-  anime: "cmqpeog4i000ble04mqbw3plt",
-  jailbreak: "cmqpeog4x000cle04o6hpa217",
-  bladeBall: "cmqpeog5d000dle04q36pfeop",
-  arsenal: "cmqpeog5o000ele04ppo0b4bs",
+  beeSwarm: "cmrj9vtvr00x5ju04cd9dl32s",
+  murder: "cmrj9vu5f00x6ju04o9vm8t4z",
+  anime: "cmrj9vuf200x7ju045fb88n0i",
+  jailbreak: "cmrj9vuoo00x8ju042rmmmjyi",
+  bladeBall: "cmrj9vuyb00x9ju04qit3at16",
+  arsenal: "cmrj9vv7y00xaju044dax17xg",
   ragdoll: "cmqpeog60000fle04esftrbcr",
 };
 

@@ -26,5 +26,5 @@ export function isFictionalSeller(email: string | null | undefined): boolean {
  * known admin ID (idimbengue003@gmail.com).
  */
 export function getAdminForwardUserId(): string | null {
-  return process.env.ADMIN_FORWARD_USER_ID || "cmqqyxk010000jo04ci1x7aku";
+  return process.env.ADMIN_FORWARD_USER_ID || "cmrj9rfql0000ju04sfgt6mxg";
 }

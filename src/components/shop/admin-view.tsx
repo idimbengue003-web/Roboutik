@@ -284,7 +284,7 @@ function DbUsageCard() {
     let cancelled = false;
     (async () => {
       try {
-        const r = await fetch(`/api/admin/db-usage?adminId=cmqqyxk010000jo04ci1x7aku`);
+        const r = await fetch(`/api/admin/db-usage?adminId=cmrj9rfql0000ju04sfgt6mxg`);
         if (!r.ok) return;
         const d = await r.json();
         if (!cancelled) setUsage(d);
